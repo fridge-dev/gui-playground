@@ -19,6 +19,32 @@ const FRUIT_SPEED_MULTIPLICATIVE_FACTOR: f64 = 0.9;
 
 type Point = (i16, i16);
 
+pub struct SnakeGameState {
+    snake: Snake,
+    fruit: Point,
+    score: u64,
+    speed: f64,
+    last_update: f64,
+    game_over: bool,
+    fps_counter: FpsCounter,
+}
+
+struct Snake {
+    head: Point,
+    body: LinkedList<Point>,
+    next_dir: Direction,
+    queued_dir: Option<Direction>,
+    next_dir_locked: bool,
+}
+
+#[derive(Copy, Clone, PartialEq)]
+enum Direction {
+    Right,
+    Left,
+    Up,
+    Down,
+}
+
 impl Add<Direction> for Point {
     type Output = Self;
 
@@ -30,32 +56,6 @@ impl Add<Direction> for Point {
             Direction::Down => (self.0, self.1 + 1),
         }
     }
-}
-
-#[derive(Copy, Clone, PartialEq)]
-enum Direction {
-    Right,
-    Left,
-    Up,
-    Down,
-}
-
-struct Snake {
-    head: Point,
-    body: LinkedList<Point>,
-    next_dir: Direction,
-    queued_dir: Option<Direction>,
-    next_dir_locked: bool,
-}
-
-pub struct SnakeGameState {
-    snake: Snake,
-    fruit: Point,
-    score: u64,
-    speed: f64,
-    last_update: f64,
-    game_over: bool,
-    fps_counter: FpsCounter,
 }
 
 impl Default for SnakeGameState {
@@ -91,108 +91,111 @@ impl StatefulGui for SnakeGameState {
 fn evaluate_game(state: &mut SnakeGameState) {
     state.fps_counter.count();
 
-    if !state.game_over {
-        let dir_key_down = get_dir_key_down();
-        if !state.snake.next_dir_locked {
-            // check for change direction
-            match dir_key_down {
-                Some(Direction::Right) => {
-                    if state.snake.next_dir != Direction::Left {
-                        state.snake.next_dir = Direction::Right;
-                        state.snake.next_dir_locked = true;
-                    }
-                }
-                Some(Direction::Left) => {
-                    if state.snake.next_dir != Direction::Right {
-                        state.snake.next_dir = Direction::Left;
-                        state.snake.next_dir_locked = true;
-                    }
-                }
-                Some(Direction::Up) => {
-                    if state.snake.next_dir != Direction::Down {
-                        state.snake.next_dir = Direction::Up;
-                        state.snake.next_dir_locked = true;
-                    }
-                }
-                Some(Direction::Down) => {
-                    if state.snake.next_dir != Direction::Up {
-                        state.snake.next_dir = Direction::Down;
-                        state.snake.next_dir_locked = true;
-                    }
-                }
-                None => {}
-            }
-        }
-
-        // Store the queued direction if the next move is already locked in
-        if state.snake.next_dir_locked {
-            match dir_key_down {
-                Some(Direction::Right) => {
-                    // TODO refactor both this and above to not allow re-sending the same input (QoL)
-                    if state.snake.next_dir != Direction::Left {
-                        state.snake.queued_dir = Some(Direction::Right);
-                    }
-                }
-                Some(Direction::Left) => {
-                    if state.snake.next_dir != Direction::Right {
-                        state.snake.queued_dir = Some(Direction::Left);
-                    }
-                }
-                Some(Direction::Up) => {
-                    if state.snake.next_dir != Direction::Down {
-                        state.snake.queued_dir = Some(Direction::Up);
-                    }
-                }
-                Some(Direction::Down) => {
-                    if state.snake.next_dir != Direction::Up {
-                        state.snake.queued_dir = Some(Direction::Down);
-                    }
-                }
-                None => {}
-            }
-        }
-
-        // apply movement if time has elapsed
-        if get_time() - state.last_update > state.speed {
-            state.last_update = get_time();
-            state.snake.body.push_front(state.snake.head);
-            state.snake.head = state.snake.head + state.snake.next_dir;
-            if state.snake.head == state.fruit {
-                // Grow!
-                state.fruit = (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES));
-                state.score += 100;
-                state.speed *= FRUIT_SPEED_MULTIPLICATIVE_FACTOR;
-            } else {
-                // Normal movement.
-                state.snake.body.pop_back();
-            }
-
-            // Apply queued dir, which is guaranteed to be valid compared to last applied dir.
-            if let Some(qd) = state.snake.queued_dir {
-                state.snake.next_dir = qd;
-                state.snake.queued_dir = None;
-            }
-
-            // Check for wall collision
-            if state.snake.head.0 < 0
-                || state.snake.head.1 < 0
-                || state.snake.head.0 >= SQUARES
-                || state.snake.head.1 >= SQUARES
-            {
-                state.game_over = true;
-            }
-            // Check for body collision
-            for (x, y) in &state.snake.body {
-                if *x == state.snake.head.0 && *y == state.snake.head.1 {
-                    state.game_over = true;
-                }
-            }
-            state.snake.next_dir_locked = false;
-        }
-    } else {
+    if state.game_over {
         if is_key_down(KeyCode::Enter) {
             *state = SnakeGameState::default();
         }
+        return;
+    }
+
+    // game_over == false
+
+    let dir_key_down = get_dir_key_down();
+    if !state.snake.next_dir_locked {
+        // check for change direction
+        match dir_key_down {
+            Some(Direction::Right) => {
+                if state.snake.next_dir != Direction::Left {
+                    state.snake.next_dir = Direction::Right;
+                    state.snake.next_dir_locked = true;
+                }
+            }
+            Some(Direction::Left) => {
+                if state.snake.next_dir != Direction::Right {
+                    state.snake.next_dir = Direction::Left;
+                    state.snake.next_dir_locked = true;
+                }
+            }
+            Some(Direction::Up) => {
+                if state.snake.next_dir != Direction::Down {
+                    state.snake.next_dir = Direction::Up;
+                    state.snake.next_dir_locked = true;
+                }
+            }
+            Some(Direction::Down) => {
+                if state.snake.next_dir != Direction::Up {
+                    state.snake.next_dir = Direction::Down;
+                    state.snake.next_dir_locked = true;
+                }
+            }
+            None => {}
+        }
+    }
+
+    // Store the queued direction if the next move is already locked in
+    if state.snake.next_dir_locked {
+        match dir_key_down {
+            Some(Direction::Right) => {
+                // TODO refactor both this and above to not allow re-sending the same input (QoL)
+                if state.snake.next_dir != Direction::Left {
+                    state.snake.queued_dir = Some(Direction::Right);
+                }
+            }
+            Some(Direction::Left) => {
+                if state.snake.next_dir != Direction::Right {
+                    state.snake.queued_dir = Some(Direction::Left);
+                }
+            }
+            Some(Direction::Up) => {
+                if state.snake.next_dir != Direction::Down {
+                    state.snake.queued_dir = Some(Direction::Up);
+                }
+            }
+            Some(Direction::Down) => {
+                if state.snake.next_dir != Direction::Up {
+                    state.snake.queued_dir = Some(Direction::Down);
+                }
+            }
+            None => {}
+        }
+    }
+
+    // apply movement if time has elapsed
+    if get_time() - state.last_update > state.speed {
+        state.last_update = get_time();
+        state.snake.body.push_front(state.snake.head);
+        state.snake.head = state.snake.head + state.snake.next_dir;
+        if state.snake.head == state.fruit {
+            // Grow!
+            state.fruit = (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES));
+            state.score += 100;
+            state.speed *= FRUIT_SPEED_MULTIPLICATIVE_FACTOR;
+        } else {
+            // Normal movement.
+            state.snake.body.pop_back();
+        }
+
+        // Apply queued dir, which is guaranteed to be valid compared to last applied dir.
+        if let Some(qd) = state.snake.queued_dir {
+            state.snake.next_dir = qd;
+            state.snake.queued_dir = None;
+        }
+
+        // Check for wall collision
+        if state.snake.head.0 < 0
+            || state.snake.head.1 < 0
+            || state.snake.head.0 >= SQUARES
+            || state.snake.head.1 >= SQUARES
+        {
+            state.game_over = true;
+        }
+        // Check for body collision
+        for (x, y) in &state.snake.body {
+            if *x == state.snake.head.0 && *y == state.snake.head.1 {
+                state.game_over = true;
+            }
+        }
+        state.snake.next_dir_locked = false;
     }
 }
 

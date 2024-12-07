@@ -1,6 +1,9 @@
 use macroquad::prelude as mq;
 
 pub mod snake_example;
+mod turn_time_tracker;
+
+pub use turn_time_tracker::TurnTimeTrackerState;
 
 pub async fn run_gui_default<T: StatefulGui + Default>() {
     run_gui(T::default()).await
