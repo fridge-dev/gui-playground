@@ -1,10 +1,13 @@
-use std::collections::LinkedList;
-use std::ops::Add;
 use macroquad::color::{DARKGRAY, DARKGREEN, GOLD, LIGHTGRAY, LIME, WHITE};
 use macroquad::input::{is_key_down, KeyCode};
-use macroquad::prelude::{clear_background, draw_line, draw_rectangle, draw_text, measure_text, next_frame, screen_height, screen_width};
+use macroquad::prelude::{
+    clear_background, draw_circle, draw_line, draw_rectangle, draw_text, measure_text, next_frame,
+    screen_height, screen_width,
+};
 use macroquad::rand;
 use macroquad::time::{get_fps, get_time};
+use std::collections::LinkedList;
+use std::ops::Add;
 
 const SQUARES: i16 = 16;
 
@@ -239,29 +242,26 @@ fn draw_game(state: &GameState, fps_counter: &mut FpsCounter) {
             );
         }
 
-        draw_rectangle(
+        draw_circle(
             offset_x + state.snake.head.0 as f32 * sq_size,
             offset_y + state.snake.head.1 as f32 * sq_size,
-            sq_size,
-            sq_size,
+            sq_size / 2.5,
             DARKGREEN,
         );
 
         for (x, y) in &state.snake.body {
-            draw_rectangle(
+            draw_circle(
                 offset_x + *x as f32 * sq_size,
                 offset_y + *y as f32 * sq_size,
-                sq_size,
-                sq_size,
+                sq_size / 2.5,
                 LIME,
             );
         }
 
-        draw_rectangle(
+        draw_circle(
             offset_x + state.fruit.0 as f32 * sq_size,
             offset_y + state.fruit.1 as f32 * sq_size,
-            sq_size,
-            sq_size,
+            sq_size / 2.5,
             GOLD,
         );
     } else {
@@ -282,9 +282,21 @@ fn draw_game(state: &GameState, fps_counter: &mut FpsCounter) {
     }
 
     // Unconditionally draw debug info
-    draw_text(format!("mqFPS: {}fps", get_fps()).as_str(), 10., 50., 50., DARKGRAY);
+    draw_text(
+        format!("mqFPS: {}fps", get_fps()).as_str(),
+        10.,
+        50.,
+        50.,
+        DARKGRAY,
+    );
     let (my_fps, my_fps_dur) = fps_counter.count_and_get();
-    draw_text(format!("myFPS: {my_fps}fps ({my_fps_dur}s)").as_str(), 10., 110., 50., DARKGRAY);
+    draw_text(
+        format!("myFPS: {my_fps}fps ({my_fps_dur}s)").as_str(),
+        10.,
+        110.,
+        50.,
+        DARKGRAY,
+    );
 }
 
 struct FpsCounter {
