@@ -101,14 +101,14 @@ impl TurnTimeTrackerState {
         for (i, player) in players.iter().enumerate() {
             let text_line = format!(
                 // TODO replace '9' padding with dynamic name padding
-                "{} {: <9}: {: >6.1} sec ({: >2.0}%) -- ({} turns; avg {:.3} sec/turn)",
+                "{} {: <9}: {} ({: >2.0}%) -- ({} turns; avg {:.3} sec/turn)",
                 if i == current_player_index {
                     "[X]"
                 } else {
                     "[ ]"
                 },
                 player.display_name,
-                player.total_time.as_secs_f32(),
+                format_duration(player.total_time),
                 100.0 * (player.total_time.as_secs_f32() / all_total_time.as_secs_f32()),
                 player.num_turns,
                 player.total_time.as_secs_f32() / player.num_turns as f32,
@@ -116,7 +116,6 @@ impl TurnTimeTrackerState {
 
             // TODO: use friendlier font
             mq::draw_text(
-                // TODO: HH:mm:ss display time
                 &text_line,
                 10.0,
                 ((TEXT_LINE_BUFFER + FONT_SIZE) * (i as u32 + 1)) as f32,
@@ -137,6 +136,19 @@ impl TurnTimeTrackerState {
             );
         }
     }
+}
+
+fn format_duration(duration: Duration) -> String {
+    let total_seconds = duration.as_secs();
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = total_seconds % 60;
+    let hundredths = 100.0 * (duration.as_secs_f32() % 1.0);
+
+    format!(
+        "{:02}:{:02}:{:02}.{:02.0}",
+        hours, minutes, seconds, hundredths
+    )
 }
 
 #[derive(Copy, Clone)]
