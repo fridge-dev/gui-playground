@@ -100,7 +100,7 @@ impl TurnTimeTrackerState {
 
         for (i, player) in players.iter().enumerate() {
             let text_line = format!(
-                // TODO get better '12'
+                // TODO replace '9' padding with dynamic name padding
                 "{} {: <9}: {: >6.1} sec ({: >2.0}%) -- ({} turns; avg {:.3} sec/turn)",
                 if i == current_player_index {
                     "[X]"
@@ -114,6 +114,7 @@ impl TurnTimeTrackerState {
                 player.total_time.as_secs_f32() / player.num_turns as f32,
             );
 
+            // TODO: use friendlier font
             mq::draw_text(
                 // TODO: HH:mm:ss display time
                 &text_line,
@@ -123,6 +124,8 @@ impl TurnTimeTrackerState {
                 player.display_color,
             );
         }
+
+        // TODO: draw shapes to visualize weighting.
 
         if let TimerState::Paused = self.timer {
             mq::draw_text(
