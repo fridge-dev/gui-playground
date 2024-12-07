@@ -1,7 +1,8 @@
+use crate::StatefulGui;
 use macroquad::color::{DARKGRAY, DARKGREEN, GOLD, LIGHTGRAY, LIME, WHITE};
 use macroquad::input::{is_key_down, KeyCode};
 use macroquad::prelude::{
-    clear_background, draw_circle, draw_line, draw_rectangle, draw_text, measure_text, next_frame,
+    clear_background, draw_circle, draw_line, draw_rectangle, draw_text, measure_text,
     screen_height, screen_width,
 };
 use macroquad::rand;
@@ -47,16 +48,17 @@ struct Snake {
     next_dir_locked: bool,
 }
 
-struct GameState {
+pub struct SnakeGameState {
     snake: Snake,
     fruit: Point,
     score: u64,
     speed: f64,
     last_update: f64,
     game_over: bool,
+    fps_counter: FpsCounter,
 }
 
-impl Default for GameState {
+impl Default for SnakeGameState {
     fn default() -> Self {
         Self {
             snake: Snake {
@@ -71,22 +73,24 @@ impl Default for GameState {
             speed: INITIAL_SPEED,
             last_update: get_time(),
             game_over: false,
+            fps_counter: FpsCounter::new(),
         }
     }
 }
 
-pub async fn run_main() {
-    let mut state = GameState::default();
-    let mut fps_counter = FpsCounter::new();
+impl StatefulGui for SnakeGameState {
+    fn update(&mut self) {
+        evaluate_game(self);
+    }
 
-    loop {
-        evaluate_game(&mut state);
-        draw_game(&state, &mut fps_counter);
-        next_frame().await;
+    fn draw(&self) {
+        draw_game(self);
     }
 }
 
-fn evaluate_game(state: &mut GameState) {
+fn evaluate_game(state: &mut SnakeGameState) {
+    state.fps_counter.count();
+
     if !state.game_over {
         let dir_key_down = get_dir_key_down();
         if !state.snake.next_dir_locked {
@@ -187,7 +191,7 @@ fn evaluate_game(state: &mut GameState) {
         }
     } else {
         if is_key_down(KeyCode::Enter) {
-            *state = GameState::default();
+            *state = SnakeGameState::default();
         }
     }
 }
@@ -207,7 +211,7 @@ fn get_dir_key_down() -> Option<Direction> {
     }
 }
 
-fn draw_game(state: &GameState, fps_counter: &mut FpsCounter) {
+fn draw_game(state: &SnakeGameState) {
     if !state.game_over {
         // Draw game-in-progress state
         clear_background(LIGHTGRAY);
@@ -289,7 +293,7 @@ fn draw_game(state: &GameState, fps_counter: &mut FpsCounter) {
         50.,
         DARKGRAY,
     );
-    let (my_fps, my_fps_dur) = fps_counter.count_and_get();
+    let (my_fps, my_fps_dur) = state.fps_counter.get();
     draw_text(
         format!("myFPS: {my_fps}fps ({my_fps_dur}s)").as_str(),
         10.,
@@ -307,7 +311,7 @@ struct FpsCounter {
 }
 
 impl FpsCounter {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             last_fps_update_time: get_time(),
             last_update_duration: 0.0,
@@ -316,7 +320,7 @@ impl FpsCounter {
         }
     }
 
-    pub fn count_and_get(&mut self) -> (u32, f64) {
+    pub(crate) fn count(&mut self) {
         self.frames_this_update += 1;
         let now = get_time();
         let delta = now - self.last_fps_update_time;
@@ -326,7 +330,9 @@ impl FpsCounter {
             self.last_fps = (self.frames_this_update as f64 / delta) as u32;
             self.frames_this_update = 0;
         }
+    }
 
+    pub fn get(&self) -> (u32, f64) {
         (self.last_fps, self.last_update_duration)
     }
 }
