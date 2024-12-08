@@ -16,9 +16,9 @@ async fn main() {
     state.add_player("Zla", mq::SKYBLUE);
     state.add_player("Dorian", mq::PINK);
     state.add_player("Leo", mq::GREEN);
-    state.add_player("Tiger", mq::MAGENTA);
+    state.add_player("Tiger", mq::DARKBLUE);
     state.add_player("Russet", mq::ORANGE);
-    state.add_player("Pudding", mq::DARKBLUE);
+    state.add_player("Pudding", mq::DARKBROWN);
     state.add_player("Cranberry", mq::RED);
 
     turn_time_tracker::run_gui(state).await
