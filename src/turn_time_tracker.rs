@@ -8,8 +8,18 @@ const KEY_NEXT_PLAYER: mq::KeyCode = mq::KeyCode::Space;
 const KEY_PAUSE: mq::KeyCode = mq::KeyCode::P;
 
 // Draw consts
-const FONT_SIZE: u32 = 40;
-const TEXT_LINE_BUFFER: u32 = 10;
+const PLAYER_TEXT_FONT_SIZE: u32 = 40;
+const PLAYER_TEXT_LINE_BUFFER: u32 = 10;
+const PLAYER_TEXT_X: f32 = 10.0;
+const PLAYER_TEXT_Y: f32 = PIE_THICKNESS + PIE_Y + 10.0;
+
+const PAUSED_TEXT_FONT_SIZE: u32 = PLAYER_TEXT_FONT_SIZE;
+const PAUSED_TEXT_X: f32 = 10.0;
+const PAUSED_TEXT_Y: f32 = PIE_Y + PIE_THICKNESS;
+
+const PIE_X: f32 = 250.0;
+const PIE_Y: f32 = 250.0;
+const PIE_THICKNESS: f32 = 230.0;
 
 pub struct TurnTimeTrackerState {
     players: InfiniteIterator<Player>,
@@ -98,6 +108,8 @@ impl TurnTimeTrackerState {
             all_total_time += player.total_time
         }
 
+        // Draw text
+        // TODO: add less info display option
         for (i, player) in players.iter().enumerate() {
             let text_line = format!(
                 // TODO replace '9' padding with dynamic name padding
@@ -117,23 +129,51 @@ impl TurnTimeTrackerState {
             // TODO: use friendlier font
             mq::draw_text(
                 &text_line,
-                10.0,
-                ((TEXT_LINE_BUFFER + FONT_SIZE) * (i as u32 + 1)) as f32,
-                FONT_SIZE as f32,
+                PLAYER_TEXT_X,
+                PLAYER_TEXT_Y
+                    + ((PLAYER_TEXT_LINE_BUFFER + PLAYER_TEXT_FONT_SIZE) * (i as u32 + 1)) as f32,
+                PLAYER_TEXT_FONT_SIZE as f32,
                 player.display_color,
             );
         }
 
-        // TODO: draw shapes to visualize weighting.
+        Self::draw_pie(players, all_total_time);
 
         if let TimerState::Paused = self.timer {
             mq::draw_text(
                 "PAUSED",
-                10.0,
-                ((TEXT_LINE_BUFFER + FONT_SIZE) * (players.len() as u32 + 1)) as f32,
-                FONT_SIZE as f32,
+                PAUSED_TEXT_X,
+                PAUSED_TEXT_Y,
+                PAUSED_TEXT_FONT_SIZE as f32,
                 mq::WHITE,
             );
+        }
+    }
+
+    fn draw_pie(players: &Vec<Player>, all_total_time: Duration) {
+        let circle_sides = 100;
+        let radius = 0.0;
+        // Offset circle so 0 degrees is north.
+        let rotation_offset = -90.0;
+
+        let mut current_start_degree = 0.0;
+        for player in players {
+            // portion = [0, 1]
+            let player_slice_portion =
+                player.total_time.as_secs_f32() / all_total_time.as_secs_f32();
+            let player_slice_degrees = 360.0 * player_slice_portion;
+            mq::draw_arc(
+                PIE_X,
+                PIE_Y,
+                circle_sides,
+                radius,
+                current_start_degree + rotation_offset,
+                PIE_THICKNESS,
+                player_slice_degrees,
+                player.display_color,
+            );
+
+            current_start_degree += player_slice_degrees;
         }
     }
 }
