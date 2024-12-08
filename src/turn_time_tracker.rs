@@ -8,7 +8,7 @@ const KEY_NEXT_PLAYER: mq::KeyCode = mq::KeyCode::Space;
 const KEY_PAUSE: mq::KeyCode = mq::KeyCode::P;
 
 // Draw consts
-const FONT_SIZE: u32 = 50;
+const FONT_SIZE: u32 = 40;
 const TEXT_LINE_BUFFER: u32 = 10;
 
 pub struct TurnTimeTrackerState {
@@ -143,12 +143,9 @@ fn format_duration(duration: Duration) -> String {
     let hours = total_seconds / 3600;
     let minutes = (total_seconds % 3600) / 60;
     let seconds = total_seconds % 60;
-    let hundredths = 100.0 * (duration.as_secs_f32() % 1.0);
+    let hundredths = (100.0 * (duration.as_secs_f32() % 1.0)) as u32;
 
-    format!(
-        "{:02}:{:02}:{:02}.{:02.0}",
-        hours, minutes, seconds, hundredths
-    )
+    format!("{hours:02}:{minutes:02}:{seconds:02}.{hundredths:02.0}")
 }
 
 #[derive(Copy, Clone)]
@@ -220,6 +217,26 @@ mod infinite_iterator {
         pub(crate) fn raw(&self) -> (&Vec<T>, usize) {
             self.check_invariants("raw");
             (&self.items, self.current_index)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    #[test]
+    fn test_format_duration() {
+        let test_cases = [
+            // (input seconds, expected format)
+            (2.99999, "00:00:02.99"),
+            (3.00000, "00:00:03.00"),
+        ];
+
+        for (input_seconds, expected_output) in test_cases {
+            let input = Duration::from_secs_f64(input_seconds);
+            let actual_output = super::format_duration(input);
+            assert_eq!(expected_output, &actual_output);
         }
     }
 }
