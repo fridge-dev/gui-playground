@@ -6,6 +6,7 @@ use std::time::{Duration, SystemTime};
 // Control consts
 const KEY_NEXT_PLAYER: mq::KeyCode = mq::KeyCode::Space;
 const KEY_PAUSE: mq::KeyCode = mq::KeyCode::P;
+const KEY_DETAIL_MODE_TOGGLE: mq::KeyCode = mq::KeyCode::D;
 
 // Draw consts
 const PLAYER_TEXT_FONT_SIZE: u32 = 40;
@@ -24,6 +25,7 @@ const PIE_THICKNESS: f32 = 230.0;
 pub struct TurnTimeTrackerState {
     players: InfiniteIterator<Player>,
     timer: TimerState,
+    text_detail_mode: TextDetailMode,
 }
 
 impl StatefulGui for TurnTimeTrackerState {
@@ -47,6 +49,7 @@ impl TurnTimeTrackerState {
         Self {
             players: InfiniteIterator::new(),
             timer: TimerState::Paused,
+            text_detail_mode: TextDetailMode::Concise,
         }
     }
 
@@ -56,6 +59,14 @@ impl TurnTimeTrackerState {
     }
 
     fn evaluate_state(&mut self, now: SystemTime) {
+        // Toggle detail mode if needed
+        if mq::is_key_pressed(KEY_DETAIL_MODE_TOGGLE) {
+            match self.text_detail_mode {
+                TextDetailMode::Concise => self.text_detail_mode = TextDetailMode::Detailed,
+                TextDetailMode::Detailed => self.text_detail_mode = TextDetailMode::Concise,
+            }
+        }
+
         match &mut self.timer {
             TimerState::Paused => {
                 // Check for unpause
@@ -65,7 +76,6 @@ impl TurnTimeTrackerState {
             }
             TimerState::Running { ref mut last_tick } => {
                 // Check for pause
-                // TODO: check behavior when holding space bar
                 if mq::is_key_pressed(KEY_PAUSE) {
                     self.timer = TimerState::Paused;
                     return;
@@ -86,7 +96,6 @@ impl TurnTimeTrackerState {
 
                 // Change current player if needed. Do this AFTER ticking current player so previous
                 // player is attributed the time until we process the player change.
-                // TODO: check behavior when holding space bar
                 if mq::is_key_pressed(KEY_NEXT_PLAYER) {
                     self.players.increment();
                     self.players.current_mut().num_turns += 1;
@@ -109,26 +118,36 @@ impl TurnTimeTrackerState {
         }
 
         // Draw text
-        // TODO: add less info display option
         for (i, player) in players.iter().enumerate() {
-            let text_line = format!(
+            let text_line_name = format!(
                 // TODO replace '9' padding with dynamic name padding
-                "{} {: <9}: {} ({: >2.0}%) -- ({} turns; avg {:.3} sec/turn)",
+                "{} {: <9}",
                 if i == current_player_index {
                     "[X]"
                 } else {
                     "[ ]"
                 },
-                player.display_name,
-                format_duration(player.total_time),
-                100.0 * (player.total_time.as_secs_f32() / all_total_time.as_secs_f32()),
-                player.num_turns,
-                player.total_time.as_secs_f32() / player.num_turns as f32,
+                player.display_name
             );
+
+            let text_line_info = match self.text_detail_mode {
+                TextDetailMode::Concise => format!(
+                    "{} ({: >2.0}%)",
+                    format_duration_concise(player.total_time),
+                    100.0 * (player.total_time.as_secs_f32() / all_total_time.as_secs_f32()),
+                ),
+                TextDetailMode::Detailed => format!(
+                    "{} ({: >2.0}%) -- ({} turns; avg {:.3} sec/turn)",
+                    format_duration_detailed(player.total_time),
+                    100.0 * (player.total_time.as_secs_f32() / all_total_time.as_secs_f32()),
+                    player.num_turns,
+                    player.total_time.as_secs_f32() / player.num_turns as f32,
+                ),
+            };
 
             // TODO: use friendlier font
             mq::draw_text(
-                &text_line,
+                &format!("{text_line_name}: {text_line_info}"),
                 PLAYER_TEXT_X,
                 PLAYER_TEXT_Y
                     + ((PLAYER_TEXT_LINE_BUFFER + PLAYER_TEXT_FONT_SIZE) * (i as u32 + 1)) as f32,
@@ -178,7 +197,16 @@ impl TurnTimeTrackerState {
     }
 }
 
-fn format_duration(duration: Duration) -> String {
+fn format_duration_concise(duration: Duration) -> String {
+    let total_seconds = duration.as_secs();
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = total_seconds % 60;
+
+    format!("{hours:02}:{minutes:02}:{seconds:02}")
+}
+
+fn format_duration_detailed(duration: Duration) -> String {
     let total_seconds = duration.as_secs();
     let hours = total_seconds / 3600;
     let minutes = (total_seconds % 3600) / 60;
@@ -192,6 +220,12 @@ fn format_duration(duration: Duration) -> String {
 enum TimerState {
     Paused,
     Running { last_tick: SystemTime },
+}
+
+#[derive(Copy, Clone)]
+enum TextDetailMode {
+    Concise,
+    Detailed,
 }
 
 struct Player {
@@ -266,7 +300,7 @@ mod tests {
     use std::time::Duration;
 
     #[test]
-    fn test_format_duration() {
+    fn test_format_duration_detailed() {
         let test_cases = [
             // (input seconds, expected format)
             (2.99999, "00:00:02.99"),
@@ -275,7 +309,7 @@ mod tests {
 
         for (input_seconds, expected_output) in test_cases {
             let input = Duration::from_secs_f64(input_seconds);
-            let actual_output = super::format_duration(input);
+            let actual_output = super::format_duration_detailed(input);
             assert_eq!(expected_output, &actual_output);
         }
     }
