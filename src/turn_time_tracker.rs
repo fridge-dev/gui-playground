@@ -10,18 +10,20 @@ const KEY_DETAIL_MODE_TOGGLE: mq::KeyCode = mq::KeyCode::D;
 
 // Draw consts
 // TODO:3 dynamic size based on window
-const PLAYER_TEXT_FONT_SIZE: u32 = 40;
-const PLAYER_TEXT_LINE_BUFFER: u32 = 10;
-const PLAYER_TEXT_X: f32 = 10.0;
-const PLAYER_TEXT_Y: f32 = PIE_THICKNESS + PIE_Y + 10.0;
+const PIE_X: f32 = 300.0;
+const PIE_Y: f32 = 300.0;
+const PIE_THICKNESS: f32 = 230.0;
+const PIE_THICKNESS_CURRENT_TURN_MULTIPLIER: f32 = 1.2;
 
-const PAUSED_TEXT_FONT_SIZE: u32 = PLAYER_TEXT_FONT_SIZE;
+const PAUSED_TEXT_FONT_SIZE: f32 = PLAYER_TEXT_FONT_SIZE;
 const PAUSED_TEXT_X: f32 = 10.0;
 const PAUSED_TEXT_Y: f32 = PIE_Y + PIE_THICKNESS;
 
-const PIE_X: f32 = 250.0;
-const PIE_Y: f32 = 250.0;
-const PIE_THICKNESS: f32 = 230.0;
+const PLAYER_TEXT_FONT_SIZE: f32 = 40.0;
+const PLAYER_TEXT_LINE_BUFFER: f32 = 10.0;
+const PLAYER_TEXT_X: f32 = 10.0;
+const PLAYER_TEXT_Y: f32 = PIE_THICKNESS + PIE_Y + 20.0;
+const PLAYER_RECTANGLE_THICKNESS: f32 = 6.0;
 
 pub struct TurnTimeTrackerState {
     players: InfiniteIterator<Player>,
@@ -101,6 +103,8 @@ impl TurnTimeTrackerState {
                     self.players.increment();
                     self.players.current_mut().num_turns += 1;
                 }
+
+                // TODO:2 press 1-9 to fastswap to player turn
             }
         }
     }
@@ -118,11 +122,30 @@ impl TurnTimeTrackerState {
             all_total_time += player.total_time
         }
 
-        // Draw text
+        Self::draw_pie(players, current_player_index, all_total_time);
+        self.draw_player_text(players, current_player_index, all_total_time);
+
+        if let TimerState::Paused = self.timer {
+            mq::draw_text(
+                "PAUSED",
+                PAUSED_TEXT_X,
+                PAUSED_TEXT_Y,
+                PAUSED_TEXT_FONT_SIZE,
+                mq::WHITE,
+            );
+        }
+    }
+
+    fn draw_player_text(
+        &self,
+        players: &Vec<Player>,
+        current_player_index: usize,
+        all_total_time: Duration,
+    ) {
         for (i, player) in players.iter().enumerate() {
             let text_line_name = format!(
-                // TODO:3 replace '9' padding with dynamic name padding
-                "{} {: <9}",
+                // Names longer than 8 chars will push the line out a little bit :P oh well
+                "{} {: <8}",
                 if i == current_player_index {
                     "[X]"
                 } else {
@@ -146,52 +169,59 @@ impl TurnTimeTrackerState {
                 ),
             };
 
-            // TODO:3 use friendlier font
+            let text_line = format!("{text_line_name}: {text_line_info}");
+
+            // TODO:3 use friendlier monospace font
+            let player_text_y = PLAYER_TEXT_Y
+                + ((PLAYER_TEXT_LINE_BUFFER + PLAYER_TEXT_FONT_SIZE) * (i as f32 + 1.0));
             mq::draw_text(
-                &format!("{text_line_name}: {text_line_info}"),
+                &text_line,
                 PLAYER_TEXT_X,
-                PLAYER_TEXT_Y
-                    + ((PLAYER_TEXT_LINE_BUFFER + PLAYER_TEXT_FONT_SIZE) * (i as u32 + 1)) as f32,
-                PLAYER_TEXT_FONT_SIZE as f32,
+                player_text_y,
+                PLAYER_TEXT_FONT_SIZE,
                 player.display_color,
             );
-        }
 
-        Self::draw_pie(players, all_total_time);
-        // TODO:1 larger thickness for current turn
-        // TODO:1 red box around current turn text row
-        // TODO:2 press 1-9 to fastswap to player turn
-
-        if let TimerState::Paused = self.timer {
-            mq::draw_text(
-                "PAUSED",
-                PAUSED_TEXT_X,
-                PAUSED_TEXT_Y,
-                PAUSED_TEXT_FONT_SIZE as f32,
-                mq::WHITE,
-            );
+            if i == current_player_index {
+                let text_dimension =
+                    mq::measure_text(&text_line, None, PLAYER_TEXT_FONT_SIZE as u16, 1.0);
+                // Magic numbers are rectangle padding, which just "looks right".
+                mq::draw_rectangle_lines(
+                    PLAYER_TEXT_X - 5.0,
+                    player_text_y - text_dimension.height - 4.0,
+                    text_dimension.width + 10.0,
+                    text_dimension.height + 18.0,
+                    PLAYER_RECTANGLE_THICKNESS,
+                    mq::WHITE,
+                );
+            }
         }
     }
 
-    fn draw_pie(players: &Vec<Player>, all_total_time: Duration) {
+    fn draw_pie(players: &Vec<Player>, current_player_index: usize, all_total_time: Duration) {
         let circle_sides = 100;
         let radius = 0.0;
         // Offset circle so 0 degrees is north.
         let rotation_offset = -90.0;
 
         let mut current_start_degree = 0.0;
-        for player in players {
+        for (i, player) in players.iter().enumerate() {
             // portion = [0, 1]
             let player_slice_portion =
                 player.total_time.as_secs_f32() / all_total_time.as_secs_f32();
             let player_slice_degrees = 360.0 * player_slice_portion;
+            let thickness_multiplier = if i == current_player_index {
+                PIE_THICKNESS_CURRENT_TURN_MULTIPLIER
+            } else {
+                1.0
+            };
             mq::draw_arc(
                 PIE_X,
                 PIE_Y,
                 circle_sides,
                 radius,
                 current_start_degree + rotation_offset,
-                PIE_THICKNESS,
+                PIE_THICKNESS * thickness_multiplier,
                 player_slice_degrees,
                 player.display_color,
             );
