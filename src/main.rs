@@ -1,12 +1,12 @@
 use macroquad::prelude as mq;
 use turn_time_tracker::TurnTimeTrackerState;
 
-// TODO run in web
+// TODO:3 run in web
 #[macroquad::main("Tabletop Turn Time Tracker")]
 async fn main() {
     let mut state = TurnTimeTrackerState::new();
 
-    // TODO: replace with dynamic player/color selection
+    // TODO:2 replace with dynamic player/color selection
     // https://github.com/not-fl3/particles-editor/blob/master/src/main.rs#L13-L130
     state.add_player("Bna", mq::YELLOW);
     state.add_player("Zla", mq::SKYBLUE);

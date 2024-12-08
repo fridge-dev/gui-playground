@@ -9,6 +9,7 @@ const KEY_PAUSE: mq::KeyCode = mq::KeyCode::P;
 const KEY_DETAIL_MODE_TOGGLE: mq::KeyCode = mq::KeyCode::D;
 
 // Draw consts
+// TODO:3 dynamic size based on window
 const PLAYER_TEXT_FONT_SIZE: u32 = 40;
 const PLAYER_TEXT_LINE_BUFFER: u32 = 10;
 const PLAYER_TEXT_X: f32 = 10.0;
@@ -53,7 +54,7 @@ impl TurnTimeTrackerState {
         }
     }
 
-    // TODO: remove `pub` and make it only accessible via UI interaction.
+    // TODO:3 remove `pub` and make it only accessible via UI interaction.
     pub fn add_player(&mut self, display_name: impl Into<String>, display_color: mq::Color) {
         self.players.push(Player::new(display_name, display_color));
     }
@@ -120,7 +121,7 @@ impl TurnTimeTrackerState {
         // Draw text
         for (i, player) in players.iter().enumerate() {
             let text_line_name = format!(
-                // TODO replace '9' padding with dynamic name padding
+                // TODO:3 replace '9' padding with dynamic name padding
                 "{} {: <9}",
                 if i == current_player_index {
                     "[X]"
@@ -145,7 +146,7 @@ impl TurnTimeTrackerState {
                 ),
             };
 
-            // TODO: use friendlier font
+            // TODO:3 use friendlier font
             mq::draw_text(
                 &format!("{text_line_name}: {text_line_info}"),
                 PLAYER_TEXT_X,
@@ -157,6 +158,9 @@ impl TurnTimeTrackerState {
         }
 
         Self::draw_pie(players, all_total_time);
+        // TODO:1 larger thickness for current turn
+        // TODO:1 red box around current turn text row
+        // TODO:2 press 1-9 to fastswap to player turn
 
         if let TimerState::Paused = self.timer {
             mq::draw_text(
