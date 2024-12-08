@@ -1,8 +1,12 @@
 use macroquad::prelude as mq;
-use turn_time_tracker::TurnTimeTrackerState;
+use turn_time_tracker::{StatefulGui, TurnTimeTrackerState};
+
+fn window_conf() -> mq::Conf {
+    TurnTimeTrackerState::main_conf()
+}
 
 // TODO:3 run in web
-#[macroquad::main("Tabletop Turn Time Tracker")]
+#[macroquad::main(window_conf)]
 async fn main() {
     let mut state = TurnTimeTrackerState::new();
 

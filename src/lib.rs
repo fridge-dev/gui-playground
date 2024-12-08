@@ -18,6 +18,10 @@ pub async fn run_gui<T: StatefulGui>(mut gui: T) {
 }
 
 pub trait StatefulGui {
+    fn main_conf() -> mq::Conf {
+        mq::Conf::default()
+    }
+
     // Both called once per frame. Helps separate state mutations and drawing.
     // TODO: provide timestamp now?
     fn update(&mut self);

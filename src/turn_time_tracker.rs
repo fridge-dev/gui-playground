@@ -32,6 +32,16 @@ pub struct TurnTimeTrackerState {
 }
 
 impl StatefulGui for TurnTimeTrackerState {
+    fn main_conf() -> mq::Conf {
+        mq::Conf {
+            window_title: "Tabletop Turn Time Tracker".to_string(),
+            window_width: (PIE_X + PIE_THICKNESS * PIE_THICKNESS_CURRENT_TURN_MULTIPLIER + 20.0)
+                as i32,
+            window_height: 1000,
+            ..Default::default()
+        }
+    }
+
     fn update(&mut self) {
         self.evaluate_state(SystemTime::now());
     }
