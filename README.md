@@ -2,13 +2,23 @@
 
 A helpful tool for finding who's turn is taking the most time when playing tabletop games together.
 
-![running](./readme-assets/app-running.png) | ![paused](./readme-assets/app-paused.png)
-
 # Usage
 
 Currently, player names, color, and ordering must be done in `main.rs`, and then compile and start the app via `cargo run`.
 
 Maybe I'll eventually get around to implementing UI to select players at runtime, but for now this does what I need.
+
+## Controls
+
+* **spacebar** - next player's turn
+* **p** - pause/unpause
+* **d** - detailed mode toggle
+
+# Examples
+
+![running](./readme-assets/app-running.png)
+
+![paused](./readme-assets/app-paused.png)
 
 # Misc Learning Docs
 
