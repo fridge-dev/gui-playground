@@ -5,9 +5,11 @@ fn window_conf() -> mq::Conf {
     TurnTimeTrackerState::main_conf()
 }
 
-// TODO:3 run in web
 #[macroquad::main(window_conf)]
 async fn main() {
+    // Test with snake!
+    // turn_time_tracker::run_gui_default::<turn_time_tracker::snake_example::SnakeGameState>().await;
+
     let mut state = TurnTimeTrackerState::new();
 
     // TODO:2 replace with dynamic player/color selection

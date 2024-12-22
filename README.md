@@ -27,3 +27,30 @@ Main learning take-away: Macroquad is good for drawing, bevy is good for ECS. I'
 * https://macroquad.rs/examples/
 * https://www.reddit.com/r/rust_gamedev/comments/oz5kd9/macroquad_vs_bevy/
 * https://bevyengine.org/learn/quick-start/getting-started/ecs/
+
+## WASM Support
+
+https://github.com/not-fl3/macroquad#wasm
+
+One time setup for local development:
+
+```
+rustup target add wasm32-unknown-unknown
+cargo install basic-http-server
+```
+
+Build (and rebuild)
+
+```
+cargo build --target wasm32-unknown-unknown
+```
+
+Run web server (learning opportunity: replace with systemd)
+
+```
+# start
+basic-http-server web &
+
+# kill
+kill -9 $(ps -ef | grep "basic-http-server web" | grep -v "grep" | awk '{print $2}')
+```

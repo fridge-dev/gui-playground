@@ -1,7 +1,7 @@
 use crate::turn_time_tracker::infinite_iterator::InfiniteIterator;
-use crate::StatefulGui;
+use crate::{StatefulGui, Timestamp};
 use macroquad::prelude as mq;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 // Control consts
 const KEY_NEXT_PLAYER: mq::KeyCode = mq::KeyCode::Space;
@@ -42,8 +42,8 @@ impl StatefulGui for TurnTimeTrackerState {
         }
     }
 
-    fn update(&mut self) {
-        self.evaluate_state(SystemTime::now());
+    fn update(&mut self, now: Timestamp) {
+        self.evaluate_state(now);
     }
 
     fn draw(&self) {
@@ -71,7 +71,7 @@ impl TurnTimeTrackerState {
         self.players.push(Player::new(display_name, display_color));
     }
 
-    fn evaluate_state(&mut self, now: SystemTime) {
+    fn evaluate_state(&mut self, now: Timestamp) {
         // Toggle detail mode if needed
         if mq::is_key_pressed(KEY_DETAIL_MODE_TOGGLE) {
             match self.text_detail_mode {
@@ -263,7 +263,7 @@ fn format_duration_detailed(duration: Duration) -> String {
 #[derive(Copy, Clone)]
 enum TimerState {
     Paused,
-    Running { last_tick: SystemTime },
+    Running { last_tick: Timestamp },
 }
 
 #[derive(Copy, Clone)]

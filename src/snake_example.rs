@@ -1,4 +1,4 @@
-use crate::StatefulGui;
+use crate::{StatefulGui, Timestamp};
 use macroquad::color::{DARKGRAY, DARKGREEN, GOLD, LIGHTGRAY, LIME, WHITE};
 use macroquad::input::{is_key_down, KeyCode};
 use macroquad::prelude::{
@@ -6,16 +6,18 @@ use macroquad::prelude::{
     screen_height, screen_width,
 };
 use macroquad::rand;
-use macroquad::time::{get_fps, get_time};
+use macroquad::time::get_fps;
 use std::collections::LinkedList;
 use std::ops::Add;
+use std::time::Duration;
 
 const SQUARES: i16 = 16;
 
-/// "Speed" = number of seconds to wait before evaluating movement
-/// Speed = `[0.3, 0.27, 0.243, 0.2187, ...]`
-const INITIAL_SPEED: f64 = 0.2;
-const FRUIT_SPEED_MULTIPLICATIVE_FACTOR: f64 = 0.9;
+/// Tick movement every period
+const INITIAL_MOVEMENT_TICK_SPEED: Duration = Duration::from_millis(200);
+/// Gradually move faster.
+/// Current config = `[0.2, 0.18, 0.162, 0.1458, ...]`
+const MOVEMENT_TICK_SPEED_MULTIPLICATIVE_FACTOR: f64 = 0.9;
 
 type Point = (i16, i16);
 
@@ -23,8 +25,8 @@ pub struct SnakeGameState {
     snake: Snake,
     fruit: Point,
     score: u64,
-    speed: f64,
-    last_update: f64,
+    movement_tick_speed: Duration,
+    last_update: Timestamp,
     game_over: bool,
     fps_counter: FpsCounter,
 }
@@ -70,8 +72,8 @@ impl Default for SnakeGameState {
             },
             fruit: (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES)),
             score: 0,
-            speed: INITIAL_SPEED,
-            last_update: get_time(),
+            movement_tick_speed: INITIAL_MOVEMENT_TICK_SPEED,
+            last_update: Timestamp::now(),
             game_over: false,
             fps_counter: FpsCounter::new(),
         }
@@ -79,8 +81,8 @@ impl Default for SnakeGameState {
 }
 
 impl StatefulGui for SnakeGameState {
-    fn update(&mut self) {
-        evaluate_game(self);
+    fn update(&mut self, now: Timestamp) {
+        evaluate_game(self, now);
     }
 
     fn draw(&self) {
@@ -88,7 +90,7 @@ impl StatefulGui for SnakeGameState {
     }
 }
 
-fn evaluate_game(state: &mut SnakeGameState) {
+fn evaluate_game(state: &mut SnakeGameState, now: Timestamp) {
     state.fps_counter.count();
 
     if state.game_over {
@@ -161,15 +163,17 @@ fn evaluate_game(state: &mut SnakeGameState) {
     }
 
     // apply movement if time has elapsed
-    if get_time() - state.last_update > state.speed {
-        state.last_update = get_time();
+    if now - state.last_update > state.movement_tick_speed {
+        state.last_update = now;
         state.snake.body.push_front(state.snake.head);
         state.snake.head = state.snake.head + state.snake.next_dir;
         if state.snake.head == state.fruit {
             // Grow!
             state.fruit = (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES));
             state.score += 100;
-            state.speed *= FRUIT_SPEED_MULTIPLICATIVE_FACTOR;
+            state.movement_tick_speed = Duration::from_secs_f64(
+                state.movement_tick_speed.as_secs_f64() * MOVEMENT_TICK_SPEED_MULTIPLICATIVE_FACTOR,
+            );
         } else {
             // Normal movement.
             state.snake.body.pop_back();
@@ -296,9 +300,10 @@ fn draw_game(state: &SnakeGameState) {
         50.,
         DARKGRAY,
     );
-    let (my_fps, my_fps_dur) = state.fps_counter.get();
+    let my_fps = state.fps_counter.fps();
+    let my_fps_frame_dur = state.fps_counter.last_frame_duration();
     draw_text(
-        format!("myFPS: {my_fps}fps ({my_fps_dur}s)").as_str(),
+        format!("myFPS: {my_fps}fps ({}s)", my_fps_frame_dur.as_secs_f64()).as_str(),
         10.,
         110.,
         50.,
@@ -307,8 +312,8 @@ fn draw_game(state: &SnakeGameState) {
 }
 
 struct FpsCounter {
-    last_fps_update_time: f64,
-    last_update_duration: f64,
+    last_fps_update_time: Timestamp,
+    last_update_duration: Duration,
     last_fps: u32,
     frames_this_update: u32,
 }
@@ -316,8 +321,8 @@ struct FpsCounter {
 impl FpsCounter {
     pub(crate) fn new() -> Self {
         Self {
-            last_fps_update_time: get_time(),
-            last_update_duration: 0.0,
+            last_fps_update_time: Timestamp::now(),
+            last_update_duration: Duration::ZERO,
             last_fps: 0,
             frames_this_update: 0,
         }
@@ -325,17 +330,21 @@ impl FpsCounter {
 
     pub(crate) fn count(&mut self) {
         self.frames_this_update += 1;
-        let now = get_time();
+        let now = Timestamp::now();
         let delta = now - self.last_fps_update_time;
-        if delta >= 1.0 {
+        if delta.as_secs_f64() >= 1.0 {
             self.last_fps_update_time = now;
             self.last_update_duration = delta;
-            self.last_fps = (self.frames_this_update as f64 / delta) as u32;
+            self.last_fps = (self.frames_this_update as f64 / delta.as_secs_f64()) as u32;
             self.frames_this_update = 0;
         }
     }
 
-    pub fn get(&self) -> (u32, f64) {
-        (self.last_fps, self.last_update_duration)
+    pub fn fps(&self) -> u32 {
+        self.last_fps
+    }
+
+    pub fn last_frame_duration(&self) -> Duration {
+        self.last_update_duration
     }
 }
