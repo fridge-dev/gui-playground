@@ -1,4 +1,5 @@
-use crate::{StatefulGui, Timestamp};
+use crate::framework::timestamp::Timestamp;
+use crate::StatefulGui;
 use macroquad::color::{DARKGRAY, DARKGREEN, GOLD, LIGHTGRAY, LIME, WHITE};
 use macroquad::input::{is_key_down, KeyCode};
 use macroquad::prelude::{

@@ -22,7 +22,7 @@ Maybe I'll eventually get around to implementing UI to select players at runtime
 
 # Misc Learning Docs
 
-Main learning take-away: Macroquad is good for drawing, bevy is good for ECS. I'm just doing some 
+Main learning take-away: Macroquad is good for drawing, bevy is good for ECS. I'm just doing some drawing.
 
 * https://macroquad.rs/examples/
 * https://www.reddit.com/r/rust_gamedev/comments/oz5kd9/macroquad_vs_bevy/

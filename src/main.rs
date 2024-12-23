@@ -8,7 +8,7 @@ fn window_conf() -> mq::Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     // Test with snake!
-    // turn_time_tracker::run_gui_default::<turn_time_tracker::snake_example::SnakeGameState>().await;
+    // turn_time_tracker::run_gui_default::<turn_time_tracker::SnakeGameState>().await;
 
     let mut state = TurnTimeTrackerState::new();
 

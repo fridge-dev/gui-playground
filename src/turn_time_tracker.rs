@@ -1,5 +1,6 @@
+use crate::framework::timestamp::Timestamp;
 use crate::turn_time_tracker::infinite_iterator::InfiniteIterator;
-use crate::{StatefulGui, Timestamp};
+use crate::StatefulGui;
 use macroquad::prelude as mq;
 use std::time::Duration;
 
@@ -148,7 +149,7 @@ impl TurnTimeTrackerState {
 
     fn draw_player_text(
         &self,
-        players: &Vec<Player>,
+        players: &[Player],
         current_player_index: usize,
         all_total_time: Duration,
     ) {
@@ -208,7 +209,7 @@ impl TurnTimeTrackerState {
         }
     }
 
-    fn draw_pie(players: &Vec<Player>, current_player_index: usize, all_total_time: Duration) {
+    fn draw_pie(players: &[Player], current_player_index: usize, all_total_time: Duration) {
         let circle_sides = 100;
         let radius = 0.0;
         // Offset circle so 0 degrees is north.
