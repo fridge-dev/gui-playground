@@ -132,7 +132,7 @@ impl MastermindGame {
             self.mouse_moved = true;
         }
 
-        match self.state {
+        match &mut self.state {
             GameState::InProgress { working_row } => {
                 // Update mouse color if needed
                 if let Some(new_color) = Self::get_color_from_key_press() {
@@ -142,7 +142,11 @@ impl MastermindGame {
                 // Update working row's color if needed
                 if mq::is_mouse_button_pressed(mq::MouseButton::Left) {
                     let (mouse_x, mouse_y) = mq::mouse_position();
-                    // TODO: check if x,y is in valid cell and update
+                    if let Some((i, j)) = circle::get_containing_ij(mouse_x, mouse_y) {
+                        if j == NUM_GUESSES - self.history.len() {
+                            working_row[i] = Some(self.mouse_color);
+                        }
+                    }
                 }
 
                 // Apply guess if needed
@@ -280,9 +284,48 @@ impl MastermindGame {
             mq::show_mouse(true);
         }
     }
+
+    #[allow(dead_code)] // for debug/test purposes
+    fn draw_ij_coordinates_on_cursor(mouse_x: f32, mouse_y: f32) {
+        if let Some((i, j)) = circle::get_containing_ij(mouse_x, mouse_y) {
+            mq::draw_text(
+                &format!("({i}, {j})"),
+                mouse_x - 10.0,
+                mouse_y - 10.0,
+                15.0,
+                mq::GREEN
+            );
+        }
+    }
 }
 
-/// Helper to manage grid of circles
+/// Helper to manage grid of circles.
+/// (x,y) = plain old pixel coordinates on display
+/// (i,j) = coordinates of circles.
+/// * i = `[0, 4)` left to right
+/// * j = `[0, 9)` bottom to top
+///
+/// Other helpful indexes:
+/// * history index is `j = NUM_GUESSES - j`
+/// * working row is `j = NUM_GUESSES - history.len()`
+///
+/// Why? It makes it easier to index into history array.
+///
+/// ```text
+///         <-- i -->
+///          0 1 2 3
+///         +-------+
+///    ^  0 |       | <-- password
+///    |  1 |       | <-- final guess
+///    |  2 |       |
+///       3 |       |
+///    j  4 |       |
+///       5 |       |
+///    |  6 |       |
+///    |  7 |       |
+///    v  8 |       | <-- first guess
+///         +-------+
+/// ```
 mod circle {
     use super::{Color, NUM_GUESSES, NUM_SLOTS_PER_ROW, BOARD_OFFSET_Y, BOARD_OFFSET_X, SLOT_RADIUS, SLOT_SIZE, SLOT_PADDING, ROW_SEPARATOR_HEIGHT};
     use macroquad::prelude as mq;
@@ -291,7 +334,7 @@ mod circle {
     const CIRCLE_ROTATION: f32 = 0.0;
     const CIRCLE_OUTLINE_THICKNESS: f32 = 1.0;
 
-    pub(crate) fn compute_xy_coordinates(i: usize, j: usize) -> (f32, f32) {
+    fn compute_xy_coordinates(i: usize, j: usize) -> (f32, f32) {
         // explosive way to make sure I don't mis-use this function
         assert!(i < NUM_SLOTS_PER_ROW);
         assert!(j < NUM_GUESSES + 1); // + 1 accounts for password row
@@ -304,6 +347,36 @@ mod circle {
         (x, y)
     }
 
+    pub(crate) fn get_containing_ij(mut x: f32, mut y: f32) -> Option<(usize, usize)> {
+        x -= BOARD_OFFSET_X + SLOT_PADDING;
+        let mut i = 0;
+        loop {
+            if x < 0.0 || i >= NUM_SLOTS_PER_ROW {
+                return None;
+            }
+            if x <= SLOT_SIZE {
+                break;
+            }
+            i += 1;
+            x -= SLOT_SIZE + SLOT_PADDING;
+        }
+
+        y -= BOARD_OFFSET_Y + SLOT_PADDING;
+        let mut j = 0;
+        loop {
+            if y < 0.0 || j >= NUM_GUESSES + 1 {
+                return None;
+            }
+            if y <= SLOT_SIZE {
+                break;
+            }
+            j += 1;
+            y -= SLOT_SIZE + SLOT_PADDING + ROW_SEPARATOR_HEIGHT + SLOT_PADDING;
+        }
+
+        Some((i, j))
+    }
+
     pub(crate) fn draw_ij(i: usize, j: usize, color: Color) {
         let (x, y) = compute_xy_coordinates(i, j);
         draw(x, y, color);
@@ -314,7 +387,7 @@ mod circle {
         draw_outline(x, y);
     }
 
-    pub(crate) fn draw(x: f32, y: f32, color: Color) {
+    fn draw(x: f32, y: f32, color: Color) {
         mq::draw_poly(
             x,
             y,
@@ -325,7 +398,7 @@ mod circle {
         );
     }
 
-    pub(crate) fn draw_outline(x: f32, y: f32) {
+    fn draw_outline(x: f32, y: f32) {
         mq::draw_poly_lines(
             x,
             y,
@@ -376,7 +449,7 @@ struct CompleteRow {
 // None => Incomplete row
 // Some => Completed row
 fn convert_working_row_if_completed(
-    working_row: [Option<Color>; NUM_SLOTS_PER_ROW],
+    working_row: &[Option<Color>; NUM_SLOTS_PER_ROW],
 ) -> Option<[Color; NUM_SLOTS_PER_ROW]> {
     if working_row.contains(&None) {
         return None;
