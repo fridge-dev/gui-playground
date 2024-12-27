@@ -1,19 +1,28 @@
 use macroquad::prelude as mq;
-use turn_time_tracker::{StatefulGui, TurnTimeTrackerState};
+use turn_time_tracker::{MastermindGame, StatefulGui, TurnTimeTrackerState};
 
 fn window_conf() -> mq::Conf {
-    TurnTimeTrackerState::main_conf()
+    MastermindGame::main_conf()
 }
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    // Test with snake!
-    // turn_time_tracker::run_gui_default::<turn_time_tracker::SnakeGameState>().await;
+    main_mastermind().await
+}
 
+#[allow(dead_code)]
+async fn main_mastermind() {
+    // turn_time_tracker::run_gui_default::<MastermindGame>().await
+    turn_time_tracker::run_gui(MastermindGame::setup_example()).await
+}
+
+#[allow(dead_code)]
+async fn main_turn_time_tracker() {
     let mut state = TurnTimeTrackerState::new();
 
     // TODO:2 replace with dynamic player/color selection
     // https://github.com/not-fl3/particles-editor/blob/master/src/main.rs#L13-L130
+    // https://docs.rs/macroquad/latest/src/events/events.rs.html
     state.add_player("Marceline", mq::YELLOW);
     state.add_player("Bonnibel", mq::SKYBLUE);
     state.add_player("Dorian", mq::PINK);
@@ -24,4 +33,9 @@ async fn main() {
     state.add_player("Cranberry", mq::RED);
 
     turn_time_tracker::run_gui(state).await
+}
+
+#[allow(dead_code)]
+async fn main_snake() {
+    turn_time_tracker::run_gui_default::<turn_time_tracker::SnakeGameState>().await
 }
