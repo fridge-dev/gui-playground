@@ -34,10 +34,6 @@ const SLOT_PADDING: f32 = 5.0;
 const KEY_SIZE: f32 = 8.0;
 const KEY_PADDING: f32 = 10.0;
 
-const CIRCLE_SIDES: u8 = 30;
-const CIRCLE_ROTATION: f32 = 0.0;
-const CIRCLE_OUTLINE_THICKNESS: f32 = 1.0;
-
 // Features to do:
 // - player selects password
 // - pvp
@@ -205,25 +201,76 @@ impl MastermindGame {
 
     fn draw(&self) {
         mq::clear_background(mq::DARKBROWN);
-        let mut drawer = GameBoardDrawer::new();
+        let row_width = SLOT_SIZE * SLOTS_PER_ROW_F32 + SLOT_PADDING * (SLOTS_PER_ROW_F32 + 1.0);
+        let row_height = SLOT_SIZE + SLOT_PADDING * 2.0;
 
-        drawer.append_password_row();
-        match self.state {
-            GameState::InProgress { working_row } => {
-                drawer.append_history_blank_rows(NUM_GUESSES - self.history.len() - 1);
-                drawer.append_working_row(&working_row);
-                drawer.append_history(&self.history);
-            }
-            GameState::Victory => {
-                drawer.append_history_blank_rows(NUM_GUESSES - self.history.len());
-                drawer.append_history(&self.history);
-            }
-            GameState::TooManyGuesses => {
-                drawer.append_history(&self.history);
+        // Board
+        mq::draw_rectangle(
+            BOARD_OFFSET_X,
+            BOARD_OFFSET_Y,
+            row_width,
+            row_height * (NUM_GUESSES as f32 + 1.0) + ROW_SEPARATOR_HEIGHT * NUM_GUESSES as f32,
+            mq::BROWN,
+        );
+
+        // Separators - Line goes at *bottom* of first n-1 rows
+        for j in 0..NUM_GUESSES {
+            let j = j as f32;
+            mq::draw_rectangle(
+                BOARD_OFFSET_X,
+                BOARD_OFFSET_Y + row_height * (j + 1.0) + ROW_SEPARATOR_HEIGHT * j,
+                row_width,
+                ROW_SEPARATOR_HEIGHT,
+                mq::BLACK,
+            );
+        }
+
+        // Password - overwrite space already drawn with Board
+        mq::draw_rectangle(
+            BOARD_OFFSET_X,
+            BOARD_OFFSET_Y,
+            row_width,
+            row_height,
+            mq::BLACK,
+        );
+
+        // Circles - colored - history
+        for (j, row) in self.history.iter().enumerate() {
+            let j = NUM_GUESSES - j;
+            for (i, color) in row.guess.iter().enumerate() {
+                circle::draw_ij(i, j, *color);
             }
         }
 
-        // draw mouse
+        // Circles - colored - working
+        if let GameState::InProgress { working_row } = &self.state {
+            let j = NUM_GUESSES - self.history.len();
+            for (i, opt_color) in working_row.iter().enumerate() {
+                if let Some(color) = opt_color {
+                    circle::draw_ij(i, j, *color);
+                }
+            }
+
+            // Gold working box
+            let j = (NUM_GUESSES - self.history.len()) as f32;
+            mq::draw_rectangle_lines(
+                BOARD_OFFSET_X,
+                BOARD_OFFSET_Y + (row_height + ROW_SEPARATOR_HEIGHT) * j,
+                row_width,
+                row_height,
+                4.0,
+                mq::GOLD,
+            );
+        }
+
+        // Circles - outlines
+        for i in 0..NUM_SLOTS_PER_ROW {
+            for j in 0..NUM_GUESSES+1 {
+                circle::draw_outline_ij(i, j);
+            }
+        }
+
+        // Mouse
         let (mouse_x, mouse_y) = mq::mouse_position();
         let mouse_on_screen = (0.0..=mq::screen_width()).contains(&mouse_x) && (0.0..=mq::screen_height()).contains(&mouse_y);
         if mouse_on_screen && self.mouse_moved {
@@ -235,145 +282,59 @@ impl MastermindGame {
     }
 }
 
-/// Stateful drawer to track the most recent y
-struct GameBoardDrawer {
-    next_y: f32,
-}
+/// Helper to manage grid of circles
+mod circle {
+    use super::{Color, NUM_GUESSES, NUM_SLOTS_PER_ROW, BOARD_OFFSET_Y, BOARD_OFFSET_X, SLOT_RADIUS, SLOT_SIZE, SLOT_PADDING, ROW_SEPARATOR_HEIGHT};
+    use macroquad::prelude as mq;
 
-#[derive(Copy, Clone)]
-enum Circle {
-    Blank,
-    Filled(Color),
-}
+    const CIRCLE_SIDES: u8 = 30;
+    const CIRCLE_ROTATION: f32 = 0.0;
+    const CIRCLE_OUTLINE_THICKNESS: f32 = 1.0;
 
-impl Circle {
-    fn blank_row() -> [Self; NUM_SLOTS_PER_ROW] {
-        [Self::Blank, Self::Blank, Self::Blank, Self::Blank]
+    pub(crate) fn compute_xy_coordinates(i: usize, j: usize) -> (f32, f32) {
+        // explosive way to make sure I don't mis-use this function
+        assert!(i < NUM_SLOTS_PER_ROW);
+        assert!(j < NUM_GUESSES + 1); // + 1 accounts for password row
+        let i = i as f32;
+        let j = j as f32;
+
+        let x = BOARD_OFFSET_X + SLOT_RADIUS + SLOT_SIZE * i + SLOT_PADDING * (i + 1.0);
+        let y = BOARD_OFFSET_Y + SLOT_RADIUS + SLOT_SIZE * j + SLOT_PADDING * (j * 2.0 + 1.0) + ROW_SEPARATOR_HEIGHT * j;
+
+        (x, y)
     }
 
-    fn draw(x: f32, y: f32, radius: f32, color: Color) {
+    pub(crate) fn draw_ij(i: usize, j: usize, color: Color) {
+        let (x, y) = compute_xy_coordinates(i, j);
+        draw(x, y, color);
+    }
+
+    pub(crate) fn draw_outline_ij(i: usize, j: usize) {
+        let (x, y) = compute_xy_coordinates(i, j);
+        draw_outline(x, y);
+    }
+
+    pub(crate) fn draw(x: f32, y: f32, color: Color) {
         mq::draw_poly(
             x,
             y,
             CIRCLE_SIDES,
-            radius,
+            SLOT_RADIUS,
             CIRCLE_ROTATION,
             color.as_mq(),
         );
     }
 
-    fn draw_outline(x: f32, y: f32, radius: f32) {
+    pub(crate) fn draw_outline(x: f32, y: f32) {
         mq::draw_poly_lines(
             x,
             y,
             CIRCLE_SIDES,
-            radius,
+            SLOT_RADIUS,
             CIRCLE_ROTATION,
             CIRCLE_OUTLINE_THICKNESS,
             mq::WHITE,
         );
-    }
-}
-
-impl GameBoardDrawer {
-    fn new() -> Self {
-        Self { next_y: BOARD_OFFSET_Y }
-    }
-
-    /// Returns previous y value
-    fn draw_row_rectangle(&mut self, height: f32, color: mq::Color) -> f32 {
-        mq::draw_rectangle(
-            BOARD_OFFSET_X,
-            self.next_y,
-            SLOT_SIZE * SLOTS_PER_ROW_F32 + SLOT_PADDING * (SLOTS_PER_ROW_F32 + 1.0),
-            height,
-            color,
-        );
-
-        let prev_y = self.next_y;
-        self.next_y += height;
-        prev_y
-    }
-
-    fn draw_circles_in_row(&self, y_anchor: f32, circles: [Circle; NUM_SLOTS_PER_ROW]) {
-        for i in 0..circles.len() {
-            let circle = circles[i];
-            let i = i as f32;
-            let radius = SLOT_SIZE / 2.0;
-            let x = BOARD_OFFSET_X + radius + (SLOT_SIZE * i) + (SLOT_PADDING * (i + 1.0));
-            let y = y_anchor + SLOT_PADDING + radius;
-            if let Circle::Filled(fill_color) = circle {
-                mq::draw_poly(
-                    x,
-                    y,
-                    CIRCLE_SIDES,
-                    radius,
-                    CIRCLE_ROTATION,
-                    fill_color.as_mq(),
-                );
-            }
-            mq::draw_poly_lines(
-                x,
-                y,
-                CIRCLE_SIDES,
-                radius,
-                CIRCLE_ROTATION,
-                CIRCLE_OUTLINE_THICKNESS,
-                mq::WHITE,
-            );
-        }
-    }
-
-    fn append_password_row(&mut self) {
-        let prev_y = self.draw_row_rectangle(SLOT_SIZE + SLOT_PADDING * 2.0, mq::BLACK);
-        self.draw_circles_in_row(prev_y, Circle::blank_row());
-        self.append_row_separator();
-    }
-
-    fn append_row_separator(&mut self) {
-        self.draw_row_rectangle(ROW_SEPARATOR_HEIGHT, mq::BLACK);
-    }
-
-    fn append_history_blank_rows(&mut self, num_blank_rows: usize) {
-        for _ in 0..num_blank_rows {
-            self.append_history_row_blank();
-            self.append_row_separator();
-        }
-    }
-
-    fn append_history_row_blank(&mut self) {
-        let prev_y = self.draw_row_rectangle(SLOT_SIZE + SLOT_PADDING * 2.0, mq::BROWN);
-        self.draw_circles_in_row(prev_y, Circle::blank_row());
-    }
-
-    fn append_working_row(&mut self, working_row: &[Option<Color>; NUM_SLOTS_PER_ROW]) {
-        let prev_y = self.draw_row_rectangle(SLOT_SIZE + SLOT_PADDING * 2.0, mq::BROWN);
-
-        let mut circles = Circle::blank_row();
-        for (i, working_slot) in working_row.iter().enumerate() {
-            if let Some(working_color) = working_slot {
-                circles[i] = Circle::Filled(*working_color);
-            }
-        }
-        self.draw_circles_in_row(prev_y, circles);
-        self.append_row_separator();
-    }
-
-    fn append_history(&mut self, history: &[CompleteRow]) {
-        for history_row in history.iter().rev() {
-            self.append_history_row_completed(history_row);
-            self.append_row_separator();
-        }
-    }
-
-    fn append_history_row_completed(&mut self, complete_row: &CompleteRow) {
-        let prev_y = self.draw_row_rectangle(SLOT_SIZE + SLOT_PADDING * 2.0, mq::BROWN);
-
-        let mut circles = Circle::blank_row();
-        for i in 0..complete_row.guess.len() {
-            circles[i] = Circle::Filled(complete_row.guess[i]);
-        }
-        self.draw_circles_in_row(prev_y, circles);
     }
 }
 
