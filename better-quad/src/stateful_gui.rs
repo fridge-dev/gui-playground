@@ -1,6 +1,6 @@
-use crate::framework::mq_init;
-use crate::framework::timestamp::Timestamp;
-use macroquad::prelude as mq;
+use crate::init;
+use crate::mq;
+use crate::timestamp::Timestamp;
 
 /// Helpful to be disciplined about separating state mutations and drawing, and to more easily
 /// remember how to integrate with mq. Otherwise not a super useful abstraction.
@@ -16,7 +16,7 @@ pub trait StatefulGui {
 
 pub async fn run_gui<T: StatefulGui>(mut gui: T) {
     assert!(
-        mq_init::is_initialized(),
+        init::is_initialized(),
         "Must call initialize_engine() before running any app"
     );
 

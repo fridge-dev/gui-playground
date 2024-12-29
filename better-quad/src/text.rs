@@ -1,23 +1,6 @@
-use macroquad::prelude as mq;
+use crate::mq;
 
-pub(crate) struct TextContainer {
-    x_range: (f32, f32),
-    y_range: (f32, f32),
-}
-
-impl TextContainer {
-    pub(crate) fn new(x_range: (f32, f32), y_range: (f32, f32)) -> Self {
-        assert!(x_range.1 > x_range.0);
-        assert!(y_range.1 > y_range.0);
-        Self { x_range, y_range }
-    }
-
-    pub(crate) fn window() -> Self {
-        Self::new((0.0, mq::screen_width()), (0.0, mq::screen_height()))
-    }
-}
-
-pub(crate) fn draw_centered_text(
+pub fn draw_centered_text(
     text: impl AsRef<str>,
     font: Option<&mq::Font>,
     font_size: u16,
@@ -36,4 +19,21 @@ pub(crate) fn draw_centered_text(
         font_size as f32,
         color,
     );
+}
+
+pub struct TextContainer {
+    x_range: (f32, f32),
+    y_range: (f32, f32),
+}
+
+impl TextContainer {
+    pub fn new(x_range: (f32, f32), y_range: (f32, f32)) -> Self {
+        assert!(x_range.1 > x_range.0);
+        assert!(y_range.1 > y_range.0);
+        Self { x_range, y_range }
+    }
+
+    pub fn window() -> Self {
+        Self::new((0.0, mq::screen_width()), (0.0, mq::screen_height()))
+    }
 }

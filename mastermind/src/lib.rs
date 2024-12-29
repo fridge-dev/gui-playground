@@ -1,7 +1,4 @@
-use crate::framework::text::TextContainer;
-use crate::framework::timestamp::Timestamp;
-use crate::framework::{fine_circle, text};
-use crate::StatefulGui;
+use better_quad::{fine_circle, text, text::TextContainer, timestamp::Timestamp, StatefulGui};
 use macroquad::prelude as mq;
 use std::cmp::min;
 use std::collections::HashMap;
@@ -428,7 +425,7 @@ mod guess_circles_ij {
         Color, BOARD_OFFSET_X, BOARD_OFFSET_Y, NUM_GUESSES, NUM_SLOTS_PER_ROW,
         ROW_SEPARATOR_HEIGHT, SLOT_PADDING, SLOT_RADIUS, SLOT_SIZE,
     };
-    use crate::framework::fine_circle;
+    use better_quad::fine_circle;
     use macroquad::prelude as mq;
 
     const CIRCLE_OUTLINE_THICKNESS: f32 = 1.0;
@@ -590,7 +587,7 @@ fn evaluate_guess(
 
 #[cfg(test)]
 mod tests {
-    use crate::mastermind::{evaluate_guess, Color, NUM_SLOTS_PER_ROW};
+    use super::{evaluate_guess, Color, NUM_SLOTS_PER_ROW};
 
     // Janky names for readability defining test cases
     #[derive(Debug)]

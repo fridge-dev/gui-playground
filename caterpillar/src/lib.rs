@@ -1,13 +1,13 @@
-use crate::framework::timestamp::Timestamp;
-use crate::StatefulGui;
-use macroquad::color::{DARKGRAY, DARKGREEN, GOLD, LIGHTGRAY, LIME, WHITE};
-use macroquad::input::{is_key_down, KeyCode};
-use macroquad::prelude::{
+use better_quad::mq::get_fps;
+use better_quad::mq::rand;
+use better_quad::mq::{
     clear_background, draw_circle, draw_line, draw_rectangle, draw_text, measure_text,
     screen_height, screen_width,
 };
-use macroquad::rand;
-use macroquad::time::get_fps;
+use better_quad::mq::{is_key_down, KeyCode};
+use better_quad::mq::{DARKGRAY, DARKGREEN, GOLD, LIGHTGRAY, LIME, WHITE};
+use better_quad::timestamp::Timestamp;
+use better_quad::StatefulGui;
 use std::collections::LinkedList;
 use std::ops::Add;
 use std::time::Duration;

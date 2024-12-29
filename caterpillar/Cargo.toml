@@ -1,0 +1,8 @@
+[package]
+name = "caterpillar"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+better-quad = { path = "../better-quad" }
+macroquad = { workspace = true }

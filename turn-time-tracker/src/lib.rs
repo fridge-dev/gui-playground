@@ -1,6 +1,6 @@
-use crate::framework::timestamp::Timestamp;
-use crate::turn_time_tracker::infinite_iterator::InfiniteIterator;
-use crate::StatefulGui;
+use better_quad::timestamp::Timestamp;
+use better_quad::StatefulGui;
+use infinite_iterator::InfiniteIterator;
 use macroquad::prelude as mq;
 use std::time::Duration;
 

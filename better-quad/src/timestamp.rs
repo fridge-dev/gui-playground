@@ -1,4 +1,4 @@
-use macroquad::prelude as mq;
+use crate::mq;
 use std::ops::Sub;
 use std::time::Duration;
 
@@ -12,17 +12,17 @@ pub struct Timestamp {
 
 #[allow(dead_code)] // premature abstractions, but I have relatively high confidence they may be useful, knowing std lib types
 impl Timestamp {
-    pub(crate) fn now() -> Self {
+    pub fn now() -> Self {
         Self {
             seconds: mq::get_time(),
         }
     }
 
-    pub(crate) fn as_sec_f64(&self) -> f64 {
+    pub fn as_sec_f64(&self) -> f64 {
         self.seconds
     }
 
-    pub(crate) fn duration_since(&self, earlier: Timestamp) -> Option<Duration> {
+    pub fn duration_since(&self, earlier: Timestamp) -> Option<Duration> {
         let delta_seconds = self.seconds - earlier.seconds;
         if delta_seconds >= 0.0 {
             Some(Duration::from_secs_f64(delta_seconds))

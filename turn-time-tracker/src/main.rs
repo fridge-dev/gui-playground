@@ -1,23 +1,18 @@
+use better_quad::StatefulGui;
 use macroquad::prelude as mq;
-use turn_time_tracker::{MastermindGame, StatefulGui, TurnTimeTrackerState};
+use turn_time_tracker::TurnTimeTrackerState;
 
 fn window_conf() -> mq::Conf {
-    MastermindGame::main_conf()
+    TurnTimeTrackerState::main_conf()
 }
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    turn_time_tracker::initialize_engine();
-    main_mastermind().await
+    better_quad::initialize_engine();
+    better_quad::run_gui(example_turn_time_tracker()).await
 }
 
-#[allow(dead_code)]
-async fn main_mastermind() {
-    turn_time_tracker::run_gui_default::<MastermindGame>().await
-}
-
-#[allow(dead_code)]
-async fn main_turn_time_tracker() {
+fn example_turn_time_tracker() -> TurnTimeTrackerState {
     let mut state = TurnTimeTrackerState::new();
 
     // TODO:2 replace with dynamic player/color selection
@@ -32,10 +27,5 @@ async fn main_turn_time_tracker() {
     state.add_player("Pudding", mq::DARKBROWN);
     state.add_player("Cranberry", mq::RED);
 
-    turn_time_tracker::run_gui(state).await
-}
-
-#[allow(dead_code)]
-async fn main_snake() {
-    turn_time_tracker::run_gui_default::<turn_time_tracker::SnakeGameState>().await
+    state
 }

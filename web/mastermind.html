@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>GUI Playground</title>
+    <title>Mastermind</title>
     <style>
         html,
         body,
@@ -19,11 +19,9 @@
     </style>
 </head>
 <body>
+    <canvas id="glcanvas" tabindex='1'></canvas>
     <!-- Minified and statically hosted version of https://github.com/not-fl3/macroquad/blob/master/js/mq_js_bundle.js -->
-    <!-- Not needed on this page, but prefetch to warm our cache -->
     <script src="https://not-fl3.github.io/miniquad-samples/mq_js_bundle.js"></script>
-    <h1><a href="caterpillar.html">Caterpillar</a></h1>
-    <h1><a href="turn-time-tracker.html">Turn Time Tracker</a></h1>
-    <h1><a href="mastermind.html">Mastermind</a></h1>
+    <script>load("mastermind.wasm");</script>
 </body>
 </html>

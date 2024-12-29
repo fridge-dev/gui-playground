@@ -1,24 +1,7 @@
-# turn-time-tracker
+# gui-playground
 
-A helpful tool for finding who's turn is taking the most time when playing tabletop games together.
-
-# Usage
-
-Currently, player names, color, and ordering must be done in `main.rs`, and then compile and start the app via `cargo run`.
-
-Maybe I'll eventually get around to implementing UI to select players at runtime, but for now this does what I need.
-
-## Controls
-
-* **spacebar** - next player's turn
-* **p** - pause/unpause
-* **d** - detailed mode toggle
-
-# Examples
-
-![running](./readme-assets/app-running.png)
-
-![paused](./readme-assets/app-paused.png)
+This is a collection of a few toy applications I'm building for fun that all have a GUI intensive part of the coding and
+share the same macroquad abstractions.
 
 # Misc Learning Docs
 
@@ -39,18 +22,19 @@ rustup target add wasm32-unknown-unknown
 cargo install basic-http-server
 ```
 
-Build (and rebuild)
+Build
 
 ```
-cargo build --target wasm32-unknown-unknown
+./build-check.sh
+./wasm-build.sh
 ```
 
-Run web server (learning opportunity: replace with systemd)
+Run web server
 
 ```
 # start
-basic-http-server web &
+./run-web-server.sh
 
 # kill
-kill -9 $(ps -ef | grep "basic-http-server web" | grep -v "grep" | awk '{print $2}')
+./kill-web-server.sh
 ```
