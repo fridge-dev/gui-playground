@@ -1,3 +1,4 @@
+use crate::framework::mq_init;
 use crate::framework::timestamp::Timestamp;
 use macroquad::prelude as mq;
 
@@ -14,8 +15,10 @@ pub trait StatefulGui {
 }
 
 pub async fn run_gui<T: StatefulGui>(mut gui: T) {
-    // https://github.com/not-fl3/macroquad/issues/369
-    mq::rand::srand(mq::miniquad::date::now() as _);
+    assert!(
+        mq_init::is_initialized(),
+        "Must call initialize_engine() before running any app"
+    );
 
     loop {
         gui.update(Timestamp::now());

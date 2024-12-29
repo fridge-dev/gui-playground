@@ -7,6 +7,7 @@ fn window_conf() -> mq::Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+    turn_time_tracker::initialize_engine();
     main_mastermind().await
 }
 
