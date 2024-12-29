@@ -14,6 +14,9 @@ pub trait StatefulGui {
 }
 
 pub async fn run_gui<T: StatefulGui>(mut gui: T) {
+    // https://github.com/not-fl3/macroquad/issues/369
+    mq::rand::srand(mq::miniquad::date::now() as _);
+
     loop {
         gui.update(Timestamp::now());
         gui.draw();

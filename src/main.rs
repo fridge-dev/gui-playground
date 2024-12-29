@@ -12,8 +12,7 @@ async fn main() {
 
 #[allow(dead_code)]
 async fn main_mastermind() {
-    // turn_time_tracker::run_gui_default::<MastermindGame>().await
-    turn_time_tracker::run_gui(MastermindGame::setup_example()).await
+    turn_time_tracker::run_gui_default::<MastermindGame>().await
 }
 
 #[allow(dead_code)]

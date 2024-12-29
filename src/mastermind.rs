@@ -1,7 +1,8 @@
+use crate::framework::text::TextContainer;
 use crate::framework::timestamp::Timestamp;
+use crate::framework::{fine_circle, text};
 use crate::StatefulGui;
 use macroquad::prelude as mq;
-use rand::Rng;
 use std::cmp::min;
 use std::collections::HashMap;
 
@@ -22,7 +23,8 @@ const NUM_SLOTS_PER_ROW: usize = 4;
 const NUM_GUESSES: usize = 8;
 
 // Draw consts
-const CURSOR_SIZE: f32 = 10.0;
+const CURSOR_SIZE: f32 = 15.0;
+const CURSOR_RADIUS: f32 = CURSOR_SIZE / 2.0;
 const SLOTS_PER_ROW_F32: f32 = NUM_SLOTS_PER_ROW as f32;
 const BOARD_OFFSET_X: f32 = 20.0;
 const BOARD_OFFSET_Y: f32 = 20.0;
@@ -30,9 +32,8 @@ const ROW_SEPARATOR_HEIGHT: f32 = 1.0;
 const SLOT_SIZE: f32 = 50.0;
 const SLOT_RADIUS: f32 = SLOT_SIZE / 2.0;
 const SLOT_PADDING: f32 = 5.0;
-// Keys will fit within a single guess slot.
-const KEY_SIZE: f32 = 8.0;
-const KEY_PADDING: f32 = 10.0;
+const KEY_SIZE: f32 = 18.0;
+const KEY_RADIUS: f32 = KEY_SIZE / 2.0;
 
 // Features to do:
 // - player selects password
@@ -40,6 +41,7 @@ const KEY_PADDING: f32 = 10.0;
 // - custom attributes
 // - time-based
 // - show numbers on colors and ???? text on password
+// - show numbers on pegs the size of cursor below board
 pub struct MastermindGame {
     state: GameState,
     password: [Color; NUM_SLOTS_PER_ROW],
@@ -59,34 +61,10 @@ enum GameState {
     TooManyGuesses,
 }
 
-impl MastermindGame {
-    // TODO delete
-    pub fn setup_example() -> Self {
-        let mut game = Self::new();
-        game.state = GameState::InProgress {
-            working_row: [Some(Color::Yellow), None, Some(Color::Green), None],
-        };
-        game.history.extend([
-            CompleteRow {
-                guess: [Color::Red, Color::Orange, Color::Yellow, Color::Green],
-                num_correct_hits: 0,
-                num_misplaced_hits: 1,
-            },
-            CompleteRow {
-                guess: [Color::Blue, Color::Purple, Color::Yellow, Color::Orange],
-                num_correct_hits: 1,
-                num_misplaced_hits: 2,
-            }
-        ]);
-
-        game
-    }
-}
-
 impl StatefulGui for MastermindGame {
     fn main_conf() -> mq::Conf {
         mq::Conf {
-            window_title: "Mastermind Head2Head".to_string(),
+            window_title: "Mastermind".to_string(),
             // TODO less brittle const
             window_width: 325,
             window_height: 650,
@@ -142,7 +120,7 @@ impl MastermindGame {
                 // Update working row's color if needed
                 if mq::is_mouse_button_pressed(mq::MouseButton::Left) {
                     let (mouse_x, mouse_y) = mq::mouse_position();
-                    if let Some((i, j)) = circle::get_containing_ij(mouse_x, mouse_y) {
+                    if let Some((i, j)) = guess_circles_ij::get_containing_ij(mouse_x, mouse_y) {
                         if j == NUM_GUESSES - self.history.len() {
                             working_row[i] = Some(self.mouse_color);
                         }
@@ -205,53 +183,85 @@ impl MastermindGame {
 
     fn draw(&self) {
         mq::clear_background(mq::DARKBROWN);
-        let row_width = SLOT_SIZE * SLOTS_PER_ROW_F32 + SLOT_PADDING * (SLOTS_PER_ROW_F32 + 1.0);
+
+        let row_width_guess =
+            SLOT_SIZE * SLOTS_PER_ROW_F32 + SLOT_PADDING * (SLOTS_PER_ROW_F32 + 1.0);
         let row_height = SLOT_SIZE + SLOT_PADDING * 2.0;
 
+        // Derive key padding such that a single guess row has 2 rows of keys.
+        let key_padding = (row_height - KEY_SIZE * 2.0) / 3.0;
+        assert!(key_padding >= 1.0);
+        let num_keys_top_key_row = (SLOTS_PER_ROW_F32 / 2.0).ceil();
+        let row_width_key =
+            num_keys_top_key_row * KEY_SIZE + key_padding * (num_keys_top_key_row + 1.0);
+
         // Board
+        let board_height =
+            row_height * (NUM_GUESSES as f32 + 1.0) + ROW_SEPARATOR_HEIGHT * NUM_GUESSES as f32;
         mq::draw_rectangle(
             BOARD_OFFSET_X,
             BOARD_OFFSET_Y,
-            row_width,
-            row_height * (NUM_GUESSES as f32 + 1.0) + ROW_SEPARATOR_HEIGHT * NUM_GUESSES as f32,
+            row_width_guess + row_width_key,
+            board_height,
             mq::BROWN,
         );
 
-        // Separators - Line goes at *bottom* of first n-1 rows
+        // Vertical separator of Guess-Key
+        mq::draw_rectangle(
+            BOARD_OFFSET_X + row_width_guess,
+            BOARD_OFFSET_Y,
+            ROW_SEPARATOR_HEIGHT, // re-use "height" const for width :P
+            board_height,
+            mq::BLACK,
+        );
+
+        // Horizontal separators of Guess rows - Line goes at *bottom* of first n-1 rows
         for j in 0..NUM_GUESSES {
             let j = j as f32;
             mq::draw_rectangle(
                 BOARD_OFFSET_X,
                 BOARD_OFFSET_Y + row_height * (j + 1.0) + ROW_SEPARATOR_HEIGHT * j,
-                row_width,
+                row_width_guess + row_width_key,
                 ROW_SEPARATOR_HEIGHT,
                 mq::BLACK,
             );
         }
 
         // Password - overwrite space already drawn with Board
+        let password_rectangle_color = match &self.state {
+            GameState::InProgress { .. } => mq::BLACK,
+            GameState::Victory => mq::GREEN,
+            GameState::TooManyGuesses => mq::RED,
+        };
         mq::draw_rectangle(
             BOARD_OFFSET_X,
             BOARD_OFFSET_Y,
-            row_width,
+            row_width_guess,
             row_height,
-            mq::BLACK,
+            password_rectangle_color,
         );
 
-        // Circles - colored - history
-        for (j, row) in self.history.iter().enumerate() {
-            let j = NUM_GUESSES - j;
-            for (i, color) in row.guess.iter().enumerate() {
-                circle::draw_ij(i, j, *color);
+        // Password solution
+        if matches!(self.state, GameState::Victory | GameState::TooManyGuesses) {
+            for (i, color) in self.password.iter().enumerate() {
+                guess_circles_ij::draw(i, 0, *color);
             }
         }
 
-        // Circles - colored - working
+        // Guesses - colored - history
+        for (j, row) in self.history.iter().enumerate() {
+            let j = NUM_GUESSES - j;
+            for (i, color) in row.guess.iter().enumerate() {
+                guess_circles_ij::draw(i, j, *color);
+            }
+        }
+
+        // Guesses - colored - working
         if let GameState::InProgress { working_row } = &self.state {
             let j = NUM_GUESSES - self.history.len();
             for (i, opt_color) in working_row.iter().enumerate() {
                 if let Some(color) = opt_color {
-                    circle::draw_ij(i, j, *color);
+                    guess_circles_ij::draw(i, j, *color);
                 }
             }
 
@@ -260,25 +270,112 @@ impl MastermindGame {
             mq::draw_rectangle_lines(
                 BOARD_OFFSET_X,
                 BOARD_OFFSET_Y + (row_height + ROW_SEPARATOR_HEIGHT) * j,
-                row_width,
+                row_width_guess,
                 row_height,
                 4.0,
                 mq::GOLD,
             );
         }
 
-        // Circles - outlines
+        // Guesses - outlines
         for i in 0..NUM_SLOTS_PER_ROW {
-            for j in 0..NUM_GUESSES+1 {
-                circle::draw_outline_ij(i, j);
+            for j in 0..=NUM_GUESSES {
+                guess_circles_ij::draw_outline(i, j);
+            }
+        }
+
+        // TODO: replace with formula
+        let key_offsets: [(f32, f32); NUM_SLOTS_PER_ROW] = [
+            (key_padding + KEY_RADIUS, key_padding + KEY_RADIUS),
+            (
+                key_padding * 2.0 + KEY_RADIUS * 3.0,
+                key_padding + KEY_RADIUS,
+            ),
+            (
+                key_padding + KEY_RADIUS,
+                key_padding * 2.0 + KEY_RADIUS * 3.0,
+            ),
+            (
+                key_padding * 2.0 + KEY_RADIUS * 3.0,
+                key_padding * 2.0 + KEY_RADIUS * 3.0,
+            ),
+        ];
+
+        // Keys - colored
+        for (j, row) in self.history.iter().enumerate() {
+            let j = (NUM_GUESSES - j) as f32;
+            let mut key_offset_index = 0;
+            for _ in 0..row.num_correct_hits {
+                let (key_offset_x, key_offset_y) = key_offsets[key_offset_index];
+                fine_circle::draw(
+                    BOARD_OFFSET_X + row_width_guess + key_offset_x,
+                    BOARD_OFFSET_Y + (row_height + ROW_SEPARATOR_HEIGHT) * j + key_offset_y,
+                    KEY_RADIUS,
+                    mq::WHITE,
+                );
+                key_offset_index += 1;
+            }
+
+            for _ in 0..row.num_misplaced_hits {
+                let (key_offset_x, key_offset_y) = key_offsets[key_offset_index];
+                let medium_grey = mq::Color::new(0.38, 0.38, 0.38, 1.00);
+                fine_circle::draw(
+                    BOARD_OFFSET_X + row_width_guess + key_offset_x,
+                    BOARD_OFFSET_Y + (row_height + ROW_SEPARATOR_HEIGHT) * j + key_offset_y,
+                    KEY_RADIUS,
+                    medium_grey,
+                );
+                key_offset_index += 1;
+            }
+        }
+
+        // Keys - outlines
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..NUM_SLOTS_PER_ROW {
+            let (key_offset_x, key_offset_y) = key_offsets[i];
+            for j in 1..=NUM_GUESSES {
+                let j = j as f32;
+                fine_circle::draw_outline(
+                    BOARD_OFFSET_X + row_width_guess + key_offset_x,
+                    BOARD_OFFSET_Y + (row_height + ROW_SEPARATOR_HEIGHT) * j + key_offset_y,
+                    KEY_RADIUS,
+                    1.0,
+                    mq::GOLD,
+                );
+            }
+        }
+
+        // Text
+        match &self.state {
+            GameState::InProgress { .. } => {}
+            GameState::Victory => {
+                text::draw_centered_text(
+                    "You win! You are a mastermind!",
+                    None,
+                    25,
+                    mq::GREEN,
+                    TextContainer::window(),
+                );
+            }
+            GameState::TooManyGuesses => {
+                text::draw_centered_text(
+                    "You lose lmao",
+                    None,
+                    25,
+                    mq::RED,
+                    TextContainer::window(),
+                );
             }
         }
 
         // Mouse
         let (mouse_x, mouse_y) = mq::mouse_position();
-        let mouse_on_screen = (0.0..=mq::screen_width()).contains(&mouse_x) && (0.0..=mq::screen_height()).contains(&mouse_y);
+        let mouse_on_screen = (0.0..=mq::screen_width()).contains(&mouse_x)
+            && (0.0..=mq::screen_height()).contains(&mouse_y);
         if mouse_on_screen && self.mouse_moved {
-            mq::draw_circle(mouse_x, mouse_y, CURSOR_SIZE, self.mouse_color.as_mq());
+            fine_circle::draw(mouse_x, mouse_y, CURSOR_RADIUS, self.mouse_color.as_mq());
+            fine_circle::draw(mouse_x, mouse_y, 1.0, mq::BLACK);
+            fine_circle::draw_outline(mouse_x, mouse_y, CURSOR_RADIUS, 1.0, mq::BLACK);
             mq::show_mouse(false);
         } else {
             mq::show_mouse(true);
@@ -287,13 +384,13 @@ impl MastermindGame {
 
     #[allow(dead_code)] // for debug/test purposes
     fn draw_ij_coordinates_on_cursor(mouse_x: f32, mouse_y: f32) {
-        if let Some((i, j)) = circle::get_containing_ij(mouse_x, mouse_y) {
+        if let Some((i, j)) = guess_circles_ij::get_containing_ij(mouse_x, mouse_y) {
             mq::draw_text(
                 &format!("({i}, {j})"),
                 mouse_x - 10.0,
                 mouse_y - 10.0,
                 15.0,
-                mq::GREEN
+                mq::GREEN,
             );
         }
     }
@@ -326,12 +423,14 @@ impl MastermindGame {
 ///    v  8 |       | <-- first guess
 ///         +-------+
 /// ```
-mod circle {
-    use super::{Color, NUM_GUESSES, NUM_SLOTS_PER_ROW, BOARD_OFFSET_Y, BOARD_OFFSET_X, SLOT_RADIUS, SLOT_SIZE, SLOT_PADDING, ROW_SEPARATOR_HEIGHT};
+mod guess_circles_ij {
+    use super::{
+        Color, BOARD_OFFSET_X, BOARD_OFFSET_Y, NUM_GUESSES, NUM_SLOTS_PER_ROW,
+        ROW_SEPARATOR_HEIGHT, SLOT_PADDING, SLOT_RADIUS, SLOT_SIZE,
+    };
+    use crate::framework::fine_circle;
     use macroquad::prelude as mq;
 
-    const CIRCLE_SIDES: u8 = 30;
-    const CIRCLE_ROTATION: f32 = 0.0;
     const CIRCLE_OUTLINE_THICKNESS: f32 = 1.0;
 
     fn compute_xy_coordinates(i: usize, j: usize) -> (f32, f32) {
@@ -342,9 +441,23 @@ mod circle {
         let j = j as f32;
 
         let x = BOARD_OFFSET_X + SLOT_RADIUS + SLOT_SIZE * i + SLOT_PADDING * (i + 1.0);
-        let y = BOARD_OFFSET_Y + SLOT_RADIUS + SLOT_SIZE * j + SLOT_PADDING * (j * 2.0 + 1.0) + ROW_SEPARATOR_HEIGHT * j;
+        let y = BOARD_OFFSET_Y
+            + SLOT_RADIUS
+            + SLOT_SIZE * j
+            + SLOT_PADDING * (j * 2.0 + 1.0)
+            + ROW_SEPARATOR_HEIGHT * j;
 
         (x, y)
+    }
+
+    pub(crate) fn draw(i: usize, j: usize, color: Color) {
+        let (x, y) = compute_xy_coordinates(i, j);
+        fine_circle::draw(x, y, SLOT_RADIUS, color.as_mq());
+    }
+
+    pub(crate) fn draw_outline(i: usize, j: usize) {
+        let (x, y) = compute_xy_coordinates(i, j);
+        fine_circle::draw_outline(x, y, SLOT_RADIUS, CIRCLE_OUTLINE_THICKNESS, mq::WHITE);
     }
 
     pub(crate) fn get_containing_ij(mut x: f32, mut y: f32) -> Option<(usize, usize)> {
@@ -364,6 +477,7 @@ mod circle {
         y -= BOARD_OFFSET_Y + SLOT_PADDING;
         let mut j = 0;
         loop {
+            #[allow(clippy::int_plus_one)]
             if y < 0.0 || j >= NUM_GUESSES + 1 {
                 return None;
             }
@@ -375,39 +489,6 @@ mod circle {
         }
 
         Some((i, j))
-    }
-
-    pub(crate) fn draw_ij(i: usize, j: usize, color: Color) {
-        let (x, y) = compute_xy_coordinates(i, j);
-        draw(x, y, color);
-    }
-
-    pub(crate) fn draw_outline_ij(i: usize, j: usize) {
-        let (x, y) = compute_xy_coordinates(i, j);
-        draw_outline(x, y);
-    }
-
-    fn draw(x: f32, y: f32, color: Color) {
-        mq::draw_poly(
-            x,
-            y,
-            CIRCLE_SIDES,
-            SLOT_RADIUS,
-            CIRCLE_ROTATION,
-            color.as_mq(),
-        );
-    }
-
-    fn draw_outline(x: f32, y: f32) {
-        mq::draw_poly_lines(
-            x,
-            y,
-            CIRCLE_SIDES,
-            SLOT_RADIUS,
-            CIRCLE_ROTATION,
-            CIRCLE_OUTLINE_THICKNESS,
-            mq::WHITE,
-        );
     }
 }
 
@@ -423,7 +504,7 @@ enum Color {
 
 impl Color {
     fn random() -> Self {
-        let r = rand::thread_rng().gen_range(0..COLOR_PALETTE.len());
+        let r = mq::rand::gen_range(0, COLOR_PALETTE.len());
         COLOR_PALETTE[r]
     }
 
@@ -459,7 +540,7 @@ fn convert_working_row_if_completed(
     // This could be made better by using Vec<> everywhere.
     assert_eq!(
         4, NUM_SLOTS_PER_ROW,
-        "changed SLOTS_PER_ROW const without changing hard-coded indexes"
+        "changed NUM_SLOTS_PER_ROW const without changing hard-coded indexes"
     );
     Some([
         working_row[0].unwrap(),
@@ -469,7 +550,10 @@ fn convert_working_row_if_completed(
     ])
 }
 
-fn evaluate_guess(guess: [Color; NUM_SLOTS_PER_ROW], password: [Color; NUM_SLOTS_PER_ROW]) -> CompleteRow {
+fn evaluate_guess(
+    guess: [Color; NUM_SLOTS_PER_ROW],
+    password: [Color; NUM_SLOTS_PER_ROW],
+) -> CompleteRow {
     let mut guess_colors_eligible_for_misplaced_hits = HashMap::new();
     let mut password_colors_eligible_for_misplaced_hits = HashMap::new();
 
