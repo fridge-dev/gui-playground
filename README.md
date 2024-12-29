@@ -3,6 +3,12 @@
 This is a collection of a few toy applications I'm building for fun that all have a GUI intensive part of the coding and
 share the same macroquad abstractions.
 
+## Apps
+
+* [Caterpillar](./caterpillar) - Modified snake example
+* [Turn Time Tracker](./turn-time-tracker) - Tool to track tabletop game time per player
+* [Mastermind](./mastermind) - Classic tabletop game built from scratch
+
 # Misc Learning Docs
 
 Main learning take-away: Macroquad is good for drawing, bevy is good for ECS. I'm just doing some drawing.
