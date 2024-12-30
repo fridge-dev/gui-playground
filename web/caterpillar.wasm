@@ -1,1 +1,1 @@
-../target/wasm32-unknown-unknown/debug/caterpillar.wasm
+../target/wasm32-unknown-unknown/release/caterpillar.wasm
