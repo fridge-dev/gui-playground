@@ -5,7 +5,7 @@ use std::time::Duration;
 /// Wrapper of time so we can have a non-primitive type for time to disambiguate UOM.
 ///
 /// Why not SystemTime/etc? Those don't exist on WASM.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Timestamp {
     seconds: f64,
 }

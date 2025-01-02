@@ -1,10 +1,15 @@
-use better_quad::{fine_circle, text, text::TextContainer, timestamp::Timestamp, StatefulGui};
+use better_quad::text::{TextBackground, TextCenterPoint};
+use better_quad::{fine_circle, text, timestamp::Timestamp, StatefulGui};
 use macroquad::prelude as mq;
 use std::cmp::min;
 use std::collections::HashMap;
+use std::fmt::Debug;
+use std::time::Duration;
 
 // Control consts
 const KEY_SUBMIT: mq::KeyCode = mq::KeyCode::Space;
+const KEY_REPLAY_PASSWORD: mq::KeyCode = mq::KeyCode::R;
+const KEY_NEW_PASSWORD: mq::KeyCode = mq::KeyCode::Space;
 
 // Game logic consts
 const NUM_COLORS: usize = 6;
@@ -31,6 +36,16 @@ const SLOT_RADIUS: f32 = SLOT_SIZE / 2.0;
 const SLOT_PADDING: f32 = 5.0;
 const KEY_SIZE: f32 = 18.0;
 const KEY_RADIUS: f32 = KEY_SIZE / 2.0;
+const WIN_TITLES: [&str; NUM_GUESSES] = [
+    "LUCKER DUCKER",
+    "lucker ducker",
+    "goated mastermind",
+    "mastermind",
+    "genius",
+    "clever loon",
+    "silly goose",
+    "dangerous warbler",
+];
 
 // Features to do:
 // - player selects password
@@ -49,13 +64,25 @@ pub struct MastermindGame {
     mouse_moved: bool,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq)]
 enum GameState {
     InProgress {
+        start_time: Timestamp,
         working_row: [Option<Color>; NUM_SLOTS_PER_ROW],
     },
-    Victory,
+    Victory {
+        total_time: Duration,
+    },
     TooManyGuesses,
+}
+
+impl GameState {
+    fn new_game() -> Self {
+        Self::InProgress {
+            start_time: Timestamp::now(),
+            working_row: [None; NUM_SLOTS_PER_ROW],
+        }
+    }
 }
 
 impl StatefulGui for MastermindGame {
@@ -63,7 +90,7 @@ impl StatefulGui for MastermindGame {
         mq::Conf {
             window_title: "Mastermind".to_string(),
             // TODO less brittle const
-            window_width: 325,
+            window_width: 480,
             window_height: 650,
             ..Default::default()
         }
@@ -87,9 +114,7 @@ impl Default for MastermindGame {
 impl MastermindGame {
     fn new() -> Self {
         Self {
-            state: GameState::InProgress {
-                working_row: [None; NUM_SLOTS_PER_ROW],
-            },
+            state: GameState::new_game(),
             password: [
                 Color::random(),
                 Color::random(),
@@ -102,13 +127,31 @@ impl MastermindGame {
         }
     }
 
-    fn update(&mut self, _now: Timestamp) {
+    fn reset_with_same_password(&mut self) {
+        self.state = GameState::new_game();
+        self.history = Vec::with_capacity(NUM_GUESSES);
+    }
+
+    fn reset_with_new_password(&mut self) {
+        self.reset_with_same_password();
+        self.password = [
+            Color::random(),
+            Color::random(),
+            Color::random(),
+            Color::random(),
+        ];
+    }
+
+    fn update(&mut self, now: Timestamp) {
         if !self.mouse_moved && mq::mouse_position() != (0.0, 0.0) {
             self.mouse_moved = true;
         }
 
         match &mut self.state {
-            GameState::InProgress { working_row } => {
+            GameState::InProgress {
+                working_row,
+                start_time,
+            } => {
                 // Update mouse color if needed
                 if let Some(new_color) = Self::get_color_from_key_press() {
                     self.mouse_color = new_color;
@@ -131,22 +174,23 @@ impl MastermindGame {
                         self.history.push(complete_row);
 
                         if complete_row.num_correct_hits == NUM_SLOTS_PER_ROW {
-                            self.state = GameState::Victory;
+                            self.state = GameState::Victory {
+                                total_time: now - *start_time,
+                            };
                         } else if self.history.len() == NUM_GUESSES {
                             self.state = GameState::TooManyGuesses;
                         } else {
-                            self.state = GameState::InProgress {
-                                working_row: [None; NUM_SLOTS_PER_ROW],
-                            };
+                            *working_row = [None; NUM_SLOTS_PER_ROW];
                         }
                     }
                 }
             }
-            GameState::Victory => {
-                // TODO: no update? Check for restart keypress
-            }
-            GameState::TooManyGuesses => {
-                // TODO: no update? Check for restart keypress
+            GameState::TooManyGuesses | GameState::Victory { .. } => {
+                if mq::is_key_pressed(KEY_REPLAY_PASSWORD) {
+                    self.reset_with_same_password();
+                } else if mq::is_key_pressed(KEY_NEW_PASSWORD) {
+                    self.reset_with_new_password();
+                }
             }
         }
     }
@@ -227,7 +271,7 @@ impl MastermindGame {
         // Password - overwrite space already drawn with Board
         let password_rectangle_color = match &self.state {
             GameState::InProgress { .. } => mq::BLACK,
-            GameState::Victory => mq::GREEN,
+            GameState::Victory { .. } => mq::GREEN,
             GameState::TooManyGuesses => mq::RED,
         };
         mq::draw_rectangle(
@@ -239,7 +283,10 @@ impl MastermindGame {
         );
 
         // Password solution
-        if matches!(self.state, GameState::Victory | GameState::TooManyGuesses) {
+        if matches!(
+            self.state,
+            GameState::Victory { .. } | GameState::TooManyGuesses
+        ) {
             for (i, color) in self.password.iter().enumerate() {
                 guess_circles_ij::draw(i, 0, *color);
             }
@@ -254,7 +301,7 @@ impl MastermindGame {
         }
 
         // Guesses - colored - working
-        if let GameState::InProgress { working_row } = &self.state {
+        if let GameState::InProgress { working_row, .. } = &self.state {
             let j = NUM_GUESSES - self.history.len();
             for (i, opt_color) in working_row.iter().enumerate() {
                 if let Some(color) = opt_color {
@@ -329,24 +376,42 @@ impl MastermindGame {
         }
 
         // Text
+        let new_game_text = format!(
+            "Press [{}] to replay the same password.\nPress [{}] for a new password.",
+            format!("{KEY_REPLAY_PASSWORD:?}").to_lowercase(),
+            format!("{KEY_NEW_PASSWORD:?}").to_lowercase(),
+        );
+        let text_background = TextBackground {
+            color: mq::Color::new(0.78, 0.78, 0.78, 0.8),
+            x_padding: 2.0,
+            y_padding: 2.0,
+        };
         match &self.state {
             GameState::InProgress { .. } => {}
-            GameState::Victory => {
-                text::draw_centered_text(
-                    "You win! You are a mastermind!",
+            GameState::Victory { total_time } => {
+                // TODO: display seed, add ability to seed run, display seed
+                text::draw_multiline_left_aligned_text(
+                    format!(
+                        "You won in {} guesses! You are a {}!\nTime: {}\n\n{new_game_text}",
+                        self.history.len(),
+                        WIN_TITLES[self.history.len() - 1],
+                        format_duration(*total_time)
+                    ),
                     None,
                     25,
-                    mq::GREEN,
-                    TextContainer::window(),
+                    mq::DARKGREEN,
+                    TextCenterPoint::for_window(),
+                    Some(text_background),
                 );
             }
             GameState::TooManyGuesses => {
-                text::draw_centered_text(
-                    "You lose lmao",
+                text::draw_multiline_left_aligned_text(
+                    format!("You lose lmao\n\n{new_game_text}"),
                     None,
                     25,
                     mq::RED,
-                    TextContainer::window(),
+                    TextCenterPoint::for_window(),
+                    Some(text_background),
                 );
             }
         }
@@ -592,6 +657,20 @@ fn evaluate_guess(
         guess,
         num_correct_hits,
         num_misplaced_hits,
+    }
+}
+
+fn format_duration(duration: Duration) -> String {
+    let total_seconds = duration.as_secs();
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = total_seconds % 60;
+    let hundredths = (100.0 * (duration.as_secs_f32() % 1.0)) as u32;
+
+    if hours > 0 {
+        format!("{hours:02}:{minutes:02}:{seconds:02}.{hundredths:02.0}")
+    } else {
+        format!("{minutes:02}:{seconds:02}.{hundredths:02.0}")
     }
 }
 
