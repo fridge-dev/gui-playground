@@ -59,7 +59,7 @@ pub fn draw_multiline_left_aligned_text(
     }
 
     let text_x = text_center_point.x - (max_width / 2.0);
-    let text_y = text_center_point.y - (total_height / 2.0);
+    let text_y = text_center_point.y - (total_height / 2.0); // TODO: should this be +?
 
     if let Some(background) = opt_background_rectangle {
         let first_y_offset = text_line_dimensions[0].offset_y;
@@ -92,7 +92,7 @@ pub fn draw_centered_text(
 ) {
     let text_dimensions = mq::measure_text(text.as_ref(), font, font_size, 1.0);
     let text_x = text_center_point.x - (text_dimensions.width / 2.0);
-    let text_y = text_center_point.y - (text_dimensions.height / 2.0);
+    let text_y = text_center_point.y + (text_dimensions.height / 2.0);
 
     if let Some(background) = opt_background_rectangle {
         draw_text_background_rectangle(

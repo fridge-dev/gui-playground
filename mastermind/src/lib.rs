@@ -10,6 +10,7 @@ use std::time::Duration;
 const KEY_SUBMIT: mq::KeyCode = mq::KeyCode::Space;
 const KEY_REPLAY_PASSWORD: mq::KeyCode = mq::KeyCode::R;
 const KEY_NEW_PASSWORD: mq::KeyCode = mq::KeyCode::Space;
+const KEY_TOGGLE_NUMBER_OVERLAY: mq::KeyCode = mq::KeyCode::N;
 
 // Game logic consts
 const NUM_COLORS: usize = 6;
@@ -25,7 +26,7 @@ const NUM_SLOTS_PER_ROW: usize = 4;
 const NUM_GUESSES: usize = 8;
 
 // Draw consts
-const CURSOR_SIZE: f32 = 15.0;
+const CURSOR_SIZE: f32 = 30.0;
 const CURSOR_RADIUS: f32 = CURSOR_SIZE / 2.0;
 const SLOTS_PER_ROW_F32: f32 = NUM_SLOTS_PER_ROW as f32;
 const BOARD_OFFSET_X: f32 = 20.0;
@@ -36,6 +37,10 @@ const SLOT_RADIUS: f32 = SLOT_SIZE / 2.0;
 const SLOT_PADDING: f32 = 5.0;
 const KEY_SIZE: f32 = 18.0;
 const KEY_RADIUS: f32 = KEY_SIZE / 2.0;
+const PEG_SIZE: f32 = 40.0;
+const PEG_RADIUS: f32 = PEG_SIZE / 2.0;
+const PEG_PADDING: f32 = 10.0;
+const SLOT_PEG_FONT_SIZE: u16 = 24;
 const WIN_TITLES: [&str; NUM_GUESSES] = [
     "LUCKER DUCKER",
     "lucker ducker",
@@ -49,11 +54,9 @@ const WIN_TITLES: [&str; NUM_GUESSES] = [
 
 // Features to do:
 // - player selects password
+// - display seed, add ability to seed run
 // - pvp
-// - custom attributes
-// - time-based
-// - show numbers on colors and ???? text on password
-// - show numbers on pegs the size of cursor below board
+// - variable consts
 pub struct MastermindGame {
     state: GameState,
     password: [Color; NUM_SLOTS_PER_ROW],
@@ -62,6 +65,7 @@ pub struct MastermindGame {
     mouse_color: Color,
     // Work around annoying (0, 0) initialization issue with mq.
     mouse_moved: bool,
+    number_overlay: NumberOverlay,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -124,6 +128,7 @@ impl MastermindGame {
             history: Vec::with_capacity(NUM_GUESSES),
             mouse_color: COLOR_PALETTE[0],
             mouse_moved: false,
+            number_overlay: NumberOverlay::On,
         }
     }
 
@@ -145,6 +150,13 @@ impl MastermindGame {
     fn update(&mut self, now: Timestamp) {
         if !self.mouse_moved && mq::mouse_position() != (0.0, 0.0) {
             self.mouse_moved = true;
+        }
+
+        if mq::is_key_pressed(KEY_TOGGLE_NUMBER_OVERLAY) {
+            self.number_overlay = match self.number_overlay {
+                NumberOverlay::On => NumberOverlay::Off,
+                NumberOverlay::Off => NumberOverlay::On,
+            }
         }
 
         match &mut self.state {
@@ -297,7 +309,11 @@ impl MastermindGame {
             GameState::Victory { .. } | GameState::TooManyGuesses
         ) {
             for (i, color) in self.password.iter().enumerate() {
-                guess_circles_ij::draw(i, 0, *color);
+                guess_circles_ij::draw(i, 0, *color, self.number_overlay);
+            }
+        } else {
+            for i in 0..self.password.len() {
+                guess_circles_ij::draw_password_text_overlay(i, 0);
             }
         }
 
@@ -305,7 +321,7 @@ impl MastermindGame {
         for (j, row) in self.history.iter().enumerate() {
             let j = NUM_GUESSES - j;
             for (i, color) in row.guess.iter().enumerate() {
-                guess_circles_ij::draw(i, j, *color);
+                guess_circles_ij::draw(i, j, *color, self.number_overlay);
             }
         }
 
@@ -314,7 +330,7 @@ impl MastermindGame {
             let j = NUM_GUESSES - self.history.len();
             for (i, opt_color) in working_row.iter().enumerate() {
                 if let Some(color) = opt_color {
-                    guess_circles_ij::draw(i, j, *color);
+                    guess_circles_ij::draw(i, j, *color, self.number_overlay);
                 }
             }
 
@@ -384,6 +400,27 @@ impl MastermindGame {
             }
         }
 
+        // Pegs
+        let intra_peg_x_padding = ((row_width_guess + row_width_key)
+            - (COLOR_PALETTE.len() as f32 * PEG_SIZE + PEG_PADDING * 2.0))
+            / (COLOR_PALETTE.len() as f32 - 1.0);
+        for (i, color) in COLOR_PALETTE.iter().enumerate() {
+            let x = BOARD_OFFSET_X
+                + (intra_peg_x_padding + PEG_RADIUS * 2.0) * i as f32
+                + PEG_PADDING
+                + PEG_RADIUS;
+            let y = BOARD_OFFSET_Y + board_height + PEG_PADDING + PEG_RADIUS;
+            fine_circle::draw(x, y, PEG_RADIUS, color.as_mq());
+            text::draw_centered_text(
+                format!("{}", i + 1),
+                None,
+                SLOT_PEG_FONT_SIZE,
+                mq::BLACK,
+                TextCenterPoint::new(x, y),
+                None,
+            );
+        }
+
         // Text
         let new_game_text = format!(
             "Press [{}] to replay the same password.\nPress [{}] for a new password.",
@@ -398,7 +435,6 @@ impl MastermindGame {
         match &self.state {
             GameState::InProgress { .. } => {}
             GameState::Victory { total_time } => {
-                // TODO: display seed, add ability to seed run, display seed
                 text::draw_multiline_left_aligned_text(
                     format!(
                         "You won in {} guesses! You are a {}!\nTime: {}\n\n{new_game_text}",
@@ -482,10 +518,12 @@ impl MastermindGame {
 /// ```
 mod guess_circles_ij {
     use super::{
-        Color, BOARD_OFFSET_X, BOARD_OFFSET_Y, NUM_GUESSES, NUM_SLOTS_PER_ROW,
-        ROW_SEPARATOR_HEIGHT, SLOT_PADDING, SLOT_RADIUS, SLOT_SIZE,
+        Color, NumberOverlay, BOARD_OFFSET_X, BOARD_OFFSET_Y, COLOR_PALETTE, NUM_GUESSES,
+        NUM_SLOTS_PER_ROW, ROW_SEPARATOR_HEIGHT, SLOT_PADDING, SLOT_PEG_FONT_SIZE, SLOT_RADIUS,
+        SLOT_SIZE,
     };
-    use better_quad::fine_circle;
+    use better_quad::text::TextCenterPoint;
+    use better_quad::{fine_circle, text};
     use macroquad::prelude as mq;
 
     const CIRCLE_OUTLINE_THICKNESS: f32 = 1.0;
@@ -507,14 +545,45 @@ mod guess_circles_ij {
         (x, y)
     }
 
-    pub(crate) fn draw(i: usize, j: usize, color: Color) {
-        let (x, y) = compute_xy_coordinates(i, j);
-        fine_circle::draw(x, y, SLOT_RADIUS, color.as_mq());
-    }
-
     pub(crate) fn draw_outline(i: usize, j: usize) {
         let (x, y) = compute_xy_coordinates(i, j);
         fine_circle::draw_outline(x, y, SLOT_RADIUS, CIRCLE_OUTLINE_THICKNESS, mq::WHITE);
+    }
+
+    pub(crate) fn draw(i: usize, j: usize, color: Color, number_overlay: NumberOverlay) {
+        let (x, y) = compute_xy_coordinates(i, j);
+        fine_circle::draw(x, y, SLOT_RADIUS, color.as_mq());
+
+        match number_overlay {
+            NumberOverlay::On => {
+                draw_text_overlay(
+                    x,
+                    y,
+                    mq::BLACK,
+                    format!(
+                        "{}",
+                        COLOR_PALETTE.iter().position(|c| *c == color).unwrap() + 1
+                    ),
+                );
+            }
+            NumberOverlay::Off => {}
+        }
+    }
+
+    pub(crate) fn draw_password_text_overlay(i: usize, j: usize) {
+        let (x, y) = compute_xy_coordinates(i, j);
+        draw_text_overlay(x, y, mq::WHITE, "?");
+    }
+
+    fn draw_text_overlay(x: f32, y: f32, color: mq::Color, text: impl AsRef<str>) {
+        text::draw_centered_text(
+            text,
+            None,
+            SLOT_PEG_FONT_SIZE,
+            color,
+            TextCenterPoint::new(x, y),
+            None,
+        );
     }
 
     pub(crate) fn get_containing_ij(mut x: f32, mut y: f32) -> Option<(usize, usize)> {
@@ -681,6 +750,13 @@ fn format_duration(duration: Duration) -> String {
     } else {
         format!("{minutes:02}:{seconds:02}.{hundredths:02.0}")
     }
+}
+
+/// Whether or not numbers are shown over colors in the history and working row.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub(crate) enum NumberOverlay {
+    On,
+    Off,
 }
 
 #[cfg(test)]
