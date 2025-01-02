@@ -128,7 +128,7 @@ impl MastermindGame {
             history: Vec::with_capacity(NUM_GUESSES),
             mouse_color: COLOR_PALETTE[0],
             mouse_moved: false,
-            number_overlay: NumberOverlay::On,
+            number_overlay: NumberOverlay::Off,
         }
     }
 
