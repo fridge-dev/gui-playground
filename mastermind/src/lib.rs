@@ -281,29 +281,13 @@ impl MastermindGame {
             }
         }
 
-        // TODO: replace with formula
-        let key_offsets: [(f32, f32); NUM_SLOTS_PER_ROW] = [
-            (key_padding + KEY_RADIUS, key_padding + KEY_RADIUS),
-            (
-                key_padding * 2.0 + KEY_RADIUS * 3.0,
-                key_padding + KEY_RADIUS,
-            ),
-            (
-                key_padding + KEY_RADIUS,
-                key_padding * 2.0 + KEY_RADIUS * 3.0,
-            ),
-            (
-                key_padding * 2.0 + KEY_RADIUS * 3.0,
-                key_padding * 2.0 + KEY_RADIUS * 3.0,
-            ),
-        ];
-
         // Keys - colored
         for (j, row) in self.history.iter().enumerate() {
             let j = (NUM_GUESSES - j) as f32;
             let mut key_offset_index = 0;
             for _ in 0..row.num_correct_hits {
-                let (key_offset_x, key_offset_y) = key_offsets[key_offset_index];
+                let (key_offset_x, key_offset_y) =
+                    get_key_offset(key_offset_index, NUM_SLOTS_PER_ROW, key_padding, KEY_RADIUS);
                 fine_circle::draw(
                     BOARD_OFFSET_X + row_width_guess + key_offset_x,
                     BOARD_OFFSET_Y + (row_height + ROW_SEPARATOR_HEIGHT) * j + key_offset_y,
@@ -314,7 +298,8 @@ impl MastermindGame {
             }
 
             for _ in 0..row.num_misplaced_hits {
-                let (key_offset_x, key_offset_y) = key_offsets[key_offset_index];
+                let (key_offset_x, key_offset_y) =
+                    get_key_offset(key_offset_index, NUM_SLOTS_PER_ROW, key_padding, KEY_RADIUS);
                 let medium_grey = mq::Color::new(0.38, 0.38, 0.38, 1.00);
                 fine_circle::draw(
                     BOARD_OFFSET_X + row_width_guess + key_offset_x,
@@ -329,7 +314,8 @@ impl MastermindGame {
         // Keys - outlines
         #[allow(clippy::needless_range_loop)]
         for i in 0..NUM_SLOTS_PER_ROW {
-            let (key_offset_x, key_offset_y) = key_offsets[i];
+            let (key_offset_x, key_offset_y) =
+                get_key_offset(i, NUM_SLOTS_PER_ROW, key_padding, KEY_RADIUS);
             for j in 1..=NUM_GUESSES {
                 let j = j as f32;
                 fine_circle::draw_outline(
@@ -489,6 +475,30 @@ mod guess_circles_ij {
     }
 }
 
+/// Produce (x,y) key offset, assuming 2 rows for all keys.
+fn get_key_offset(
+    key_index: usize,
+    num_slots_per_row: usize,
+    key_padding: f32,
+    key_radius: f32,
+) -> (f32, f32) {
+    // 4 -> 2
+    // 5 -> 3
+    // 6 -> 3
+    // 7 -> 4
+    let num_keys_top_key_row = (num_slots_per_row as f32 / 2.0).ceil() as usize;
+    let (x_index, y_index) = if key_index < num_keys_top_key_row {
+        (key_index, 0)
+    } else {
+        (key_index - num_keys_top_key_row, 1)
+    };
+
+    let x = (key_padding + key_radius * 2.0) * x_index as f32 + key_padding + key_radius;
+    let y = (key_padding + key_radius * 2.0) * y_index as f32 + key_padding + key_radius;
+
+    (x, y)
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Color {
     Red,
@@ -587,7 +597,7 @@ fn evaluate_guess(
 
 #[cfg(test)]
 mod tests {
-    use super::{evaluate_guess, Color, NUM_SLOTS_PER_ROW};
+    use super::{evaluate_guess, get_key_offset, Color, NUM_SLOTS_PER_ROW};
 
     // Janky names for readability defining test cases
     #[derive(Debug)]
@@ -674,5 +684,86 @@ mod tests {
                 pins: (2, 0),
             },
         ]
+    }
+
+    #[test]
+    fn test_get_key_offset() {
+        let key_padding = 5.0;
+        let key_radius = 7.0;
+
+        #[rustfmt::skip]
+        get_key_offset_test_case(
+            key_padding,
+            key_radius,
+            vec![
+                (key_padding       + key_radius,       key_padding       + key_radius),
+                (key_padding * 2.0 + key_radius * 3.0, key_padding       + key_radius),
+                (key_padding       + key_radius,       key_padding * 2.0 + key_radius * 3.0),
+                (key_padding * 2.0 + key_radius * 3.0, key_padding * 2.0 + key_radius * 3.0),
+            ],
+        );
+
+        #[rustfmt::skip]
+        get_key_offset_test_case(
+            key_padding,
+            key_radius,
+            vec![
+                (key_padding       + key_radius,       key_padding       + key_radius),
+                (key_padding * 2.0 + key_radius * 3.0, key_padding       + key_radius),
+                (key_padding * 3.0 + key_radius * 5.0, key_padding       + key_radius),
+                (key_padding       + key_radius,       key_padding * 2.0 + key_radius * 3.0),
+                (key_padding * 2.0 + key_radius * 3.0, key_padding * 2.0 + key_radius * 3.0),
+            ],
+        );
+
+        #[rustfmt::skip]
+        get_key_offset_test_case(
+            key_padding,
+            key_radius,
+            vec![
+                (key_padding       + key_radius,       key_padding       + key_radius),
+                (key_padding * 2.0 + key_radius * 3.0, key_padding       + key_radius),
+                (key_padding * 3.0 + key_radius * 5.0, key_padding       + key_radius),
+                (key_padding       + key_radius,       key_padding * 2.0 + key_radius * 3.0),
+                (key_padding * 2.0 + key_radius * 3.0, key_padding * 2.0 + key_radius * 3.0),
+                (key_padding * 3.0 + key_radius * 5.0, key_padding * 2.0 + key_radius * 3.0),
+            ],
+        );
+
+        #[rustfmt::skip]
+        get_key_offset_test_case(
+            key_padding,
+            key_radius,
+            vec![
+                (key_padding       + key_radius,       key_padding       + key_radius),
+                (key_padding * 2.0 + key_radius * 3.0, key_padding       + key_radius),
+                (key_padding * 3.0 + key_radius * 5.0, key_padding       + key_radius),
+                (key_padding * 4.0 + key_radius * 7.0, key_padding       + key_radius),
+                (key_padding       + key_radius,       key_padding * 2.0 + key_radius * 3.0),
+                (key_padding * 2.0 + key_radius * 3.0, key_padding * 2.0 + key_radius * 3.0),
+                (key_padding * 3.0 + key_radius * 5.0, key_padding * 2.0 + key_radius * 3.0),
+            ],
+        );
+    }
+
+    fn get_key_offset_test_case(
+        key_padding: f32,
+        key_radius: f32,
+        expected_offsets: Vec<(f32, f32)>,
+    ) {
+        let slots_per_row = expected_offsets.len();
+        for (key_index, expected_offset) in expected_offsets.into_iter().enumerate() {
+            let actual_offset = get_key_offset(key_index, slots_per_row, key_padding, key_radius);
+            assert_eq!(
+                expected_offset.0, actual_offset.0,
+                "Key index: {}, coord X",
+                key_index
+            );
+            assert_eq!(
+                expected_offset.1, actual_offset.1,
+                "Key index: {}, coord Y",
+                key_index
+            );
+        }
     }
 }
