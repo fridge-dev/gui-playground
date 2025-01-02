@@ -157,12 +157,21 @@ impl MastermindGame {
                     self.mouse_color = new_color;
                 }
 
-                // Update working row's color if needed
+                // Set working row's color if needed
                 if mq::is_mouse_button_pressed(mq::MouseButton::Left) {
                     let (mouse_x, mouse_y) = mq::mouse_position();
                     if let Some((i, j)) = guess_circles_ij::get_containing_ij(mouse_x, mouse_y) {
                         if j == NUM_GUESSES - self.history.len() {
                             working_row[i] = Some(self.mouse_color);
+                        }
+                    }
+                }
+                // Unset working row's color if needed
+                if mq::is_mouse_button_pressed(mq::MouseButton::Right) {
+                    let (mouse_x, mouse_y) = mq::mouse_position();
+                    if let Some((i, j)) = guess_circles_ij::get_containing_ij(mouse_x, mouse_y) {
+                        if j == NUM_GUESSES - self.history.len() {
+                            working_row[i] = None;
                         }
                     }
                 }
