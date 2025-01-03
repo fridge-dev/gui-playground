@@ -140,7 +140,7 @@ fn draw_text_background_rectangle(
         text_x - background.x_padding,
         text_y - background.y_padding,
         text_width + background.x_padding * 2.0,
-        text_height + background.y_padding * 1.8, // visually, the bottom doesn't need full y padding, idk
+        text_height + background.y_padding * 2.0,
         background.color,
     );
 }
