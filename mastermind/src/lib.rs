@@ -11,6 +11,7 @@ const KEY_SUBMIT: mq::KeyCode = mq::KeyCode::Space;
 const KEY_REPLAY_PASSWORD: mq::KeyCode = mq::KeyCode::R;
 const KEY_NEW_PASSWORD: mq::KeyCode = mq::KeyCode::Space;
 const KEY_TOGGLE_NUMBER_OVERLAY: mq::KeyCode = mq::KeyCode::N;
+const KEY_PLAYER_EDIT_PASSWORD: mq::KeyCode = mq::KeyCode::P;
 
 // Game logic consts
 const NUM_COLORS: usize = 6;
@@ -53,7 +54,6 @@ const WIN_TITLES: [&str; NUM_GUESSES] = [
 ];
 
 // Features to do:
-// - player selects password
 // - display seed, add ability to seed run
 // - pvp
 // - variable consts
@@ -74,6 +74,7 @@ enum GameState {
         start_time: Timestamp,
         working_row: [Option<Color>; NUM_SLOTS_PER_ROW],
     },
+    EditPassword,
     Victory {
         total_time: Duration,
     },
@@ -159,6 +160,10 @@ impl MastermindGame {
             }
         }
 
+        self.apply_state_specific_updates(now);
+    }
+
+    fn apply_state_specific_updates(&mut self, now: Timestamp) {
         match &mut self.state {
             GameState::InProgress {
                 working_row,
@@ -198,12 +203,45 @@ impl MastermindGame {
                             self.state = GameState::Victory {
                                 total_time: now - *start_time,
                             };
-                        } else if self.history.len() == NUM_GUESSES {
+                            return;
+                        }
+
+                        if self.history.len() == NUM_GUESSES {
                             self.state = GameState::TooManyGuesses;
-                        } else {
-                            *working_row = [None; NUM_SLOTS_PER_ROW];
+                            return;
+                        }
+
+                        *working_row = [None; NUM_SLOTS_PER_ROW];
+                    }
+                }
+
+                // Change to password edit mode if needed
+                if mq::is_key_pressed(KEY_PLAYER_EDIT_PASSWORD) {
+                    let working_row_empty = !working_row.iter().any(|c| c.is_some());
+                    if self.history.is_empty() && working_row_empty {
+                        self.state = GameState::EditPassword;
+                    }
+                }
+            }
+            GameState::EditPassword => {
+                // Update mouse color if needed
+                if let Some(new_color) = Self::get_color_from_key_press() {
+                    self.mouse_color = new_color;
+                }
+
+                // Set password color if needed
+                if mq::is_mouse_button_pressed(mq::MouseButton::Left) {
+                    let (mouse_x, mouse_y) = mq::mouse_position();
+                    if let Some((i, j)) = guess_circles_ij::get_containing_ij(mouse_x, mouse_y) {
+                        if j == 0 {
+                            self.password[i] = self.mouse_color;
                         }
                     }
+                }
+
+                // Change to InProgress mode if needed
+                if mq::is_key_pressed(KEY_PLAYER_EDIT_PASSWORD) {
+                    self.state = GameState::new_game();
                 }
             }
             GameState::TooManyGuesses | GameState::Victory { .. } => {
@@ -292,6 +330,7 @@ impl MastermindGame {
         // Password - overwrite space already drawn with Board
         let password_rectangle_color = match &self.state {
             GameState::InProgress { .. } => mq::BLACK,
+            GameState::EditPassword => mq::BROWN,
             GameState::Victory { .. } => mq::GREEN,
             GameState::TooManyGuesses => mq::RED,
         };
@@ -303,17 +342,17 @@ impl MastermindGame {
             password_rectangle_color,
         );
 
-        // Password solution
-        if matches!(
-            self.state,
-            GameState::Victory { .. } | GameState::TooManyGuesses
-        ) {
-            for (i, color) in self.password.iter().enumerate() {
-                guess_circles_ij::draw(i, 0, *color, self.number_overlay);
+        // Password colors
+        match self.state {
+            GameState::InProgress { .. } => {
+                for i in 0..self.password.len() {
+                    guess_circles_ij::draw_password_text_overlay(i, 0);
+                }
             }
-        } else {
-            for i in 0..self.password.len() {
-                guess_circles_ij::draw_password_text_overlay(i, 0);
+            GameState::EditPassword | GameState::Victory { .. } | GameState::TooManyGuesses => {
+                for (i, color) in self.password.iter().enumerate() {
+                    guess_circles_ij::draw(i, 0, *color, self.number_overlay);
+                }
             }
         }
 
@@ -433,7 +472,7 @@ impl MastermindGame {
             y_padding: 2.0,
         };
         match &self.state {
-            GameState::InProgress { .. } => {}
+            GameState::InProgress { .. } | GameState::EditPassword => {}
             GameState::Victory { total_time } => {
                 text::draw_multiline_left_aligned_text(
                     format!(
