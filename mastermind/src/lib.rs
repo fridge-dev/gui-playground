@@ -1,5 +1,6 @@
-use better_quad::text::{TextBackground, TextCenterPoint};
-use better_quad::{fine_circle, text, timestamp::Timestamp, StatefulGui};
+use crate::password::{Password, PasswordSource};
+use better_quad::text::{TextBackground, TextCenterPoint, TextTopLeftPoint};
+use better_quad::{bq_rand, fine_circle, text, timestamp::Timestamp, StatefulGui};
 use macroquad::prelude as mq;
 use std::cmp::min;
 use std::collections::HashMap;
@@ -12,6 +13,7 @@ const KEY_REPLAY_PASSWORD: mq::KeyCode = mq::KeyCode::R;
 const KEY_NEW_PASSWORD: mq::KeyCode = mq::KeyCode::Space;
 const KEY_TOGGLE_NUMBER_OVERLAY: mq::KeyCode = mq::KeyCode::N;
 const KEY_PLAYER_EDIT_PASSWORD: mq::KeyCode = mq::KeyCode::P;
+const KEY_COPY_SEED: mq::KeyCode = mq::KeyCode::S;
 
 // Game logic consts
 const NUM_COLORS: usize = 6;
@@ -52,6 +54,8 @@ const WIN_TITLES: [&str; NUM_GUESSES] = [
     "silly goose",
     "dangerous warbler",
 ];
+const SEED_FONT_SIZE: u16 = 27;
+const SEED_TEXT_PADDING: f32 = 3.0;
 
 // Features to do:
 // - display seed, add ability to seed run
@@ -59,7 +63,7 @@ const WIN_TITLES: [&str; NUM_GUESSES] = [
 // - variable consts
 pub struct MastermindGame {
     state: GameState,
-    password: [Color; NUM_SLOTS_PER_ROW],
+    password: Password,
     // head: first guess; tail: most recent guess
     history: Vec<CompleteRow>,
     mouse_color: Color,
@@ -81,8 +85,59 @@ enum GameState {
     TooManyGuesses,
 }
 
+/// Separate mod to enforce RNG state and immutability.
+mod password {
+    use crate::{Color, NUM_SLOTS_PER_ROW};
+    use better_quad::bq_rand;
+
+    #[derive(Copy, Clone)]
+    pub(super) struct Password {
+        password: [Color; NUM_SLOTS_PER_ROW],
+        source: PasswordSource,
+    }
+
+    #[derive(Copy, Clone)]
+    pub(super) enum PasswordSource {
+        Random { seed: u64 },
+        Player,
+    }
+
+    impl Password {
+        pub(super) fn random() -> Self {
+            bq_rand::randomize_seed();
+            Self {
+                password: [
+                    Color::random(),
+                    Color::random(),
+                    Color::random(),
+                    Color::random(),
+                ],
+                source: PasswordSource::Random {
+                    seed: bq_rand::get_last_set_seed(),
+                },
+            }
+        }
+
+        pub(super) fn player_specified(password: [Color; NUM_SLOTS_PER_ROW]) -> Self {
+            Self {
+                password,
+                source: PasswordSource::Player,
+            }
+        }
+
+        pub(super) fn password(&self) -> &[Color; NUM_SLOTS_PER_ROW] {
+            &self.password
+        }
+
+        pub(super) fn source(&self) -> PasswordSource {
+            self.source
+        }
+    }
+}
+
 impl GameState {
     fn new_game() -> Self {
+        bq_rand::randomize_seed();
         Self::InProgress {
             start_time: Timestamp::now(),
             working_row: [None; NUM_SLOTS_PER_ROW],
@@ -96,7 +151,7 @@ impl StatefulGui for MastermindGame {
             window_title: "Mastermind".to_string(),
             // TODO less brittle const
             window_width: 480,
-            window_height: 650,
+            window_height: 670,
             ..Default::default()
         }
     }
@@ -120,12 +175,7 @@ impl MastermindGame {
     fn new() -> Self {
         Self {
             state: GameState::new_game(),
-            password: [
-                Color::random(),
-                Color::random(),
-                Color::random(),
-                Color::random(),
-            ],
+            password: Password::random(),
             history: Vec::with_capacity(NUM_GUESSES),
             mouse_color: COLOR_PALETTE[0],
             mouse_moved: false,
@@ -140,12 +190,7 @@ impl MastermindGame {
 
     fn reset_with_new_password(&mut self) {
         self.reset_with_same_password();
-        self.password = [
-            Color::random(),
-            Color::random(),
-            Color::random(),
-            Color::random(),
-        ];
+        self.password = Password::random();
     }
 
     fn update(&mut self, now: Timestamp) {
@@ -158,6 +203,11 @@ impl MastermindGame {
                 NumberOverlay::On => NumberOverlay::Off,
                 NumberOverlay::Off => NumberOverlay::On,
             }
+        }
+
+        if mq::is_key_pressed(KEY_COPY_SEED) {
+            // freaking clipboard isn't implemented anywhere except windows. Idk if this will work.
+            mq::miniquad::window::clipboard_set(&format!("{}", bq_rand::get_last_set_seed()));
         }
 
         self.apply_state_specific_updates(now);
@@ -196,7 +246,7 @@ impl MastermindGame {
                 // Apply guess if needed
                 if mq::is_key_pressed(KEY_SUBMIT) {
                     if let Some(guess) = convert_working_row_if_completed(working_row) {
-                        let complete_row = evaluate_guess(guess, self.password);
+                        let complete_row = evaluate_guess(guess, *self.password.password());
                         self.history.push(complete_row);
 
                         if complete_row.num_correct_hits == NUM_SLOTS_PER_ROW {
@@ -234,7 +284,9 @@ impl MastermindGame {
                     let (mouse_x, mouse_y) = mq::mouse_position();
                     if let Some((i, j)) = guess_circles_ij::get_containing_ij(mouse_x, mouse_y) {
                         if j == 0 {
-                            self.password[i] = self.mouse_color;
+                            let mut password = *self.password.password();
+                            password[i] = self.mouse_color;
+                            self.password = Password::player_specified(password);
                         }
                     }
                 }
@@ -345,12 +397,12 @@ impl MastermindGame {
         // Password colors
         match self.state {
             GameState::InProgress { .. } => {
-                for i in 0..self.password.len() {
+                for i in 0..self.password.password().len() {
                     guess_circles_ij::draw_password_text_overlay(i, 0);
                 }
             }
             GameState::EditPassword | GameState::Victory { .. } | GameState::TooManyGuesses => {
-                for (i, color) in self.password.iter().enumerate() {
+                for (i, color) in self.password.password().iter().enumerate() {
                     guess_circles_ij::draw(i, 0, *color, self.number_overlay);
                 }
             }
@@ -499,6 +551,27 @@ impl MastermindGame {
                 );
             }
         }
+
+        // Seed
+        let seed_text = match self.password.source() {
+            PasswordSource::Random { seed } => format!("Seed: {seed}"),
+            PasswordSource::Player => "Seed: N/A".to_string(),
+        };
+        let seed_text_dim = mq::measure_text(&seed_text, None, SEED_FONT_SIZE, 1.0);
+        let seed_text_x = mq::screen_width() - seed_text_dim.width - (SEED_TEXT_PADDING * 2.0);
+        let seed_text_y = mq::screen_height() - seed_text_dim.offset_y - (SEED_TEXT_PADDING * 2.0);
+        text::draw_text(
+            seed_text,
+            None,
+            SEED_FONT_SIZE,
+            mq::WHITE,
+            TextTopLeftPoint::new(seed_text_x, seed_text_y),
+            Some(TextBackground {
+                color: mq::BLACK,
+                x_padding: SEED_TEXT_PADDING,
+                y_padding: SEED_TEXT_PADDING,
+            }),
+        );
 
         // Mouse
         let (mouse_x, mouse_y) = mq::mouse_position();

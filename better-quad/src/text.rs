@@ -122,6 +122,46 @@ impl TextCenterPoint {
     }
 }
 
+pub struct TextTopLeftPoint {
+    x: f32,
+    y: f32,
+}
+
+impl TextTopLeftPoint {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+}
+
+pub fn draw_text(
+    text: impl AsRef<str>,
+    font: Option<&mq::Font>,
+    font_size: u16,
+    color: mq::Color,
+    text_top_left_point: TextTopLeftPoint,
+    opt_background_rectangle: Option<TextBackground>,
+) {
+    let text_dimensions = mq::measure_text(text.as_ref(), font, font_size, 1.0);
+
+    if let Some(background) = opt_background_rectangle {
+        draw_text_background_rectangle(
+            background,
+            text_top_left_point.x,
+            text_top_left_point.y,
+            text_dimensions.width,
+            text_dimensions.height,
+        )
+    }
+
+    mq::draw_text(
+        text.as_ref(),
+        text_top_left_point.x,
+        text_top_left_point.y + text_dimensions.offset_y,
+        font_size as f32,
+        color,
+    );
+}
+
 #[derive(Copy, Clone)]
 pub struct TextBackground {
     pub color: mq::Color,

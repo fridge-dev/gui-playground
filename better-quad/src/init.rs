@@ -1,11 +1,10 @@
-use crate::mq;
+use crate::bq_rand;
 use once_cell::sync::Lazy;
 
 static INIT: Lazy<()> = Lazy::new(do_init);
 
 fn do_init() {
-    // https://github.com/not-fl3/macroquad/issues/369
-    mq::rand::srand(mq::miniquad::date::now() as _);
+    bq_rand::randomize_seed();
 }
 
 /// Must call before starting game engine.
@@ -13,7 +12,7 @@ fn do_init() {
 /// # Why?
 ///
 /// This currently only initializes the seeded RNG, needed because macroquad has an objectively bad
-/// API for rand.
+/// API for rand. See https://github.com/not-fl3/macroquad/issues/369
 pub fn initialize_engine() {
     Lazy::force(&INIT);
 }
