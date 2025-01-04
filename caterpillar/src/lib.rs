@@ -1,3 +1,4 @@
+use better_quad::fps::FpsCounter;
 use better_quad::mq::get_fps;
 use better_quad::mq::rand;
 use better_quad::mq::{
@@ -92,7 +93,7 @@ impl StatefulGui for SnakeGameState {
 }
 
 fn evaluate_game(state: &mut SnakeGameState, now: Timestamp) {
-    state.fps_counter.count();
+    state.fps_counter.tick_frame(now);
 
     if state.game_over {
         if is_key_down(KeyCode::Enter) {
@@ -302,50 +303,12 @@ fn draw_game(state: &SnakeGameState) {
         DARKGRAY,
     );
     let my_fps = state.fps_counter.fps();
-    let my_fps_frame_dur = state.fps_counter.last_frame_duration();
+    let my_fps_period = state.fps_counter.duration_of_last_period();
     draw_text(
-        format!("myFPS: {my_fps}fps ({}s)", my_fps_frame_dur.as_secs_f64()).as_str(),
+        format!("myFPS: {my_fps}fps ({}s)", my_fps_period.as_secs_f64()).as_str(),
         10.,
         110.,
         50.,
         DARKGRAY,
     );
-}
-
-struct FpsCounter {
-    last_fps_update_time: Timestamp,
-    last_update_duration: Duration,
-    last_fps: u32,
-    frames_this_update: u32,
-}
-
-impl FpsCounter {
-    pub(crate) fn new() -> Self {
-        Self {
-            last_fps_update_time: Timestamp::now(),
-            last_update_duration: Duration::ZERO,
-            last_fps: 0,
-            frames_this_update: 0,
-        }
-    }
-
-    pub(crate) fn count(&mut self) {
-        self.frames_this_update += 1;
-        let now = Timestamp::now();
-        let delta = now - self.last_fps_update_time;
-        if delta.as_secs_f64() >= 1.0 {
-            self.last_fps_update_time = now;
-            self.last_update_duration = delta;
-            self.last_fps = (self.frames_this_update as f64 / delta.as_secs_f64()) as u32;
-            self.frames_this_update = 0;
-        }
-    }
-
-    pub fn fps(&self) -> u32 {
-        self.last_fps
-    }
-
-    pub fn last_frame_duration(&self) -> Duration {
-        self.last_update_duration
-    }
 }

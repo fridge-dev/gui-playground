@@ -1,5 +1,6 @@
 pub mod bq_rand;
 pub mod fine_circle;
+pub mod fps;
 pub(crate) mod init;
 pub(crate) mod stateful_gui;
 pub mod text;

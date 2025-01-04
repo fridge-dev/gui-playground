@@ -1,4 +1,5 @@
 use crate::password::{Password, PasswordSource};
+use better_quad::fps::FpsCounter;
 use better_quad::text::{TextBackground, TextCenterPoint, TextTopLeftPoint};
 use better_quad::{bq_rand, fine_circle, text, timestamp::Timestamp, StatefulGui};
 use macroquad::prelude as mq;
@@ -56,6 +57,8 @@ const WIN_TITLES: [&str; NUM_GUESSES] = [
 ];
 const SEED_FONT_SIZE: u16 = 27;
 const SEED_TEXT_PADDING: f32 = 3.0;
+const FPS_FONT_SIZE: u16 = 20;
+const FPS_TEXT_PADDING: f32 = 3.0;
 
 // Features to do:
 // - display seed, add ability to seed run
@@ -70,6 +73,7 @@ pub struct MastermindGame {
     // Work around annoying (0, 0) initialization issue with mq.
     mouse_moved: bool,
     number_overlay: NumberOverlay,
+    fps_counter: FpsCounter,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -180,6 +184,7 @@ impl MastermindGame {
             mouse_color: COLOR_PALETTE[0],
             mouse_moved: false,
             number_overlay: NumberOverlay::Off,
+            fps_counter: FpsCounter::new(),
         }
     }
 
@@ -194,6 +199,8 @@ impl MastermindGame {
     }
 
     fn update(&mut self, now: Timestamp) {
+        self.fps_counter.tick_frame(now);
+
         if !self.mouse_moved && mq::mouse_position() != (0.0, 0.0) {
             self.mouse_moved = true;
         }
@@ -552,13 +559,31 @@ impl MastermindGame {
             }
         }
 
+        // FPS
+        let fps_text = format!("{} FPS", self.fps_counter.fps());
+        let fps_text_dim = mq::measure_text("120 FPS", None, FPS_FONT_SIZE, 1.0);
+        let fps_text_x = mq::screen_width() - fps_text_dim.width - (FPS_TEXT_PADDING * 2.0);
+        let fps_text_y = mq::screen_height() - fps_text_dim.offset_y - (FPS_TEXT_PADDING * 2.0);
+        text::draw_text(
+            fps_text,
+            None,
+            FPS_FONT_SIZE,
+            mq::BLACK,
+            TextTopLeftPoint::new(fps_text_x, fps_text_y),
+            Some(TextBackground {
+                color: mq::Color::new(1.00, 1.00, 1.00, 0.3),
+                x_padding: FPS_TEXT_PADDING,
+                y_padding: FPS_TEXT_PADDING,
+            }),
+        );
+
         // Seed
         let seed_text = match self.password.source() {
             PasswordSource::Random { seed } => format!("Seed: {seed}"),
             PasswordSource::Player => "Seed: N/A".to_string(),
         };
         let seed_text_dim = mq::measure_text(&seed_text, None, SEED_FONT_SIZE, 1.0);
-        let seed_text_x = mq::screen_width() - seed_text_dim.width - (SEED_TEXT_PADDING * 2.0);
+        let seed_text_x = fps_text_x - seed_text_dim.width - (SEED_TEXT_PADDING * 3.0);
         let seed_text_y = mq::screen_height() - seed_text_dim.offset_y - (SEED_TEXT_PADDING * 2.0);
         text::draw_text(
             seed_text,
