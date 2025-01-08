@@ -7,6 +7,7 @@ use std::time::Duration;
 // Control consts
 const KEY_NEXT_PLAYER: mq::KeyCode = mq::KeyCode::Space;
 const KEY_PAUSE: mq::KeyCode = mq::KeyCode::P;
+const KEY_TIME_DISPLAY_TOGGLE: mq::KeyCode = mq::KeyCode::H;
 const KEY_DETAIL_MODE_TOGGLE: mq::KeyCode = mq::KeyCode::D;
 
 // Draw consts
@@ -26,13 +27,14 @@ const PLAYER_TEXT_X: f32 = 10.0;
 const PLAYER_TEXT_Y: f32 = PIE_THICKNESS + PIE_Y + 20.0;
 const PLAYER_RECTANGLE_THICKNESS: f32 = 6.0;
 
-pub struct TurnTimeTrackerState {
+pub struct TurnTimeTracker {
     players: InfiniteIterator<Player>,
     timer: TimerState,
+    time_display_mode: TimeDisplayMode,
     text_detail_mode: TextDetailMode,
 }
 
-impl StatefulGui for TurnTimeTrackerState {
+impl StatefulGui for TurnTimeTracker {
     fn main_conf() -> mq::Conf {
         mq::Conf {
             window_title: "Tabletop Turn Time Tracker".to_string(),
@@ -52,17 +54,18 @@ impl StatefulGui for TurnTimeTrackerState {
     }
 }
 
-impl Default for TurnTimeTrackerState {
+impl Default for TurnTimeTracker {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl TurnTimeTrackerState {
+impl TurnTimeTracker {
     pub fn new() -> Self {
         Self {
             players: InfiniteIterator::new(),
             timer: TimerState::Paused,
+            time_display_mode: TimeDisplayMode::Shown,
             text_detail_mode: TextDetailMode::Concise,
         }
     }
@@ -73,12 +76,20 @@ impl TurnTimeTrackerState {
     }
 
     fn evaluate_state(&mut self, now: Timestamp) {
+        // Toggle time display if needed
+        if mq::is_key_pressed(KEY_TIME_DISPLAY_TOGGLE) {
+            self.time_display_mode = match self.time_display_mode {
+                TimeDisplayMode::Shown => TimeDisplayMode::Hidden,
+                TimeDisplayMode::Hidden => TimeDisplayMode::Shown,
+            };
+        }
+
         // Toggle detail mode if needed
         if mq::is_key_pressed(KEY_DETAIL_MODE_TOGGLE) {
-            match self.text_detail_mode {
-                TextDetailMode::Concise => self.text_detail_mode = TextDetailMode::Detailed,
-                TextDetailMode::Detailed => self.text_detail_mode = TextDetailMode::Concise,
-            }
+            self.text_detail_mode = match self.text_detail_mode {
+                TextDetailMode::Concise => TextDetailMode::Detailed,
+                TextDetailMode::Detailed => TextDetailMode::Concise,
+            };
         }
 
         match &mut self.timer {
@@ -133,7 +144,10 @@ impl TurnTimeTrackerState {
             all_total_time += player.total_time
         }
 
-        Self::draw_pie(players, current_player_index, all_total_time);
+        match self.time_display_mode {
+            TimeDisplayMode::Shown => Self::draw_pie(players, current_player_index, all_total_time),
+            TimeDisplayMode::Hidden => {}
+        }
         self.draw_player_text(players, current_player_index, all_total_time);
 
         if let TimerState::Paused = self.timer {
@@ -165,13 +179,14 @@ impl TurnTimeTrackerState {
                 player.display_name
             );
 
-            let text_line_info = match self.text_detail_mode {
-                TextDetailMode::Concise => format!(
+            let text_line_info = match (self.time_display_mode, self.text_detail_mode) {
+                (TimeDisplayMode::Hidden, _) => "".to_string(),
+                (TimeDisplayMode::Shown, TextDetailMode::Concise) => format!(
                     "{} ({: >2.0}%)",
                     format_duration_concise(player.total_time),
                     100.0 * (player.total_time.as_secs_f32() / all_total_time.as_secs_f32()),
                 ),
-                TextDetailMode::Detailed => format!(
+                (TimeDisplayMode::Shown, TextDetailMode::Detailed) => format!(
                     "{} ({: >2.0}%) -- ({} turns; avg {:.3} sec/turn)",
                     format_duration_detailed(player.total_time),
                     100.0 * (player.total_time.as_secs_f32() / all_total_time.as_secs_f32()),
@@ -180,7 +195,11 @@ impl TurnTimeTrackerState {
                 ),
             };
 
-            let text_line = format!("{text_line_name}: {text_line_info}");
+            let text_line = if text_line_info.is_empty() {
+                text_line_name
+            } else {
+                format!("{text_line_name}: {text_line_info}")
+            };
 
             // TODO:3 use friendlier monospace font
             let player_text_y = PLAYER_TEXT_Y
@@ -271,6 +290,12 @@ enum TimerState {
 enum TextDetailMode {
     Concise,
     Detailed,
+}
+
+#[derive(Copy, Clone)]
+enum TimeDisplayMode {
+    Shown,
+    Hidden,
 }
 
 struct Player {

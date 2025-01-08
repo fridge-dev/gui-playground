@@ -12,6 +12,7 @@ Maybe I'll eventually get around to implementing UI to select players at runtime
 
 * **spacebar** - next player's turn
 * **p** - pause/unpause
+* **h** - hide timer and pie to only show the currently active player
 * **d** - detailed mode toggle
 
 # Examples

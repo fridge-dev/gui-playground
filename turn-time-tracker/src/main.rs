@@ -1,9 +1,9 @@
 use better_quad::StatefulGui;
 use macroquad::prelude as mq;
-use turn_time_tracker::TurnTimeTrackerState;
+use turn_time_tracker::TurnTimeTracker;
 
 fn window_conf() -> mq::Conf {
-    TurnTimeTrackerState::main_conf()
+    TurnTimeTracker::main_conf()
 }
 
 #[macroquad::main(window_conf)]
@@ -12,8 +12,8 @@ async fn main() {
     better_quad::run_gui(example_turn_time_tracker()).await
 }
 
-fn example_turn_time_tracker() -> TurnTimeTrackerState {
-    let mut state = TurnTimeTrackerState::new();
+fn example_turn_time_tracker() -> TurnTimeTracker {
+    let mut state = TurnTimeTracker::new();
 
     // TODO:2 replace with dynamic player/color selection
     // https://github.com/not-fl3/particles-editor/blob/master/src/main.rs#L13-L130
