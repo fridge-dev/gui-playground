@@ -2,6 +2,8 @@ use better_quad::timestamp::Timestamp;
 use better_quad::StatefulGui;
 use infinite_iterator::InfiniteIterator;
 use macroquad::prelude as mq;
+use std::cmp::max;
+use std::collections::BinaryHeap;
 use std::time::Duration;
 
 // Control consts
@@ -32,6 +34,24 @@ pub struct TurnTimeTracker {
     timer: TimerState,
     time_display_mode: TimeDisplayMode,
     text_detail_mode: TextDetailMode,
+}
+
+#[derive(Copy, Clone)]
+enum TimerState {
+    Paused,
+    Running { last_tick: Timestamp },
+}
+
+#[derive(Copy, Clone)]
+enum TextDetailMode {
+    Concise,
+    Detailed,
+}
+
+#[derive(Copy, Clone)]
+enum TimeDisplayMode {
+    Shown,
+    Hidden,
 }
 
 impl StatefulGui for TurnTimeTracker {
@@ -107,23 +127,18 @@ impl TurnTimeTracker {
                 }
 
                 // Tick current player
-                let current_player = self.players.current_mut();
                 let elapsed_tick_time = now
                     .duration_since(*last_tick)
                     .expect("Elapsed tick time underflow");
-                current_player.total_time += elapsed_tick_time;
-                // Band-aid to fix num_turns not being set for initial player.
-                if current_player.num_turns == 0 {
-                    current_player.num_turns = 1;
-                }
+                self.players.current_mut().tick_frame(elapsed_tick_time);
 
                 *last_tick = now;
 
                 // Change current player if needed. Do this AFTER ticking current player so previous
                 // player is attributed the time until we process the player change.
                 if mq::is_key_pressed(KEY_NEXT_PLAYER) {
-                    self.players.increment();
-                    self.players.current_mut().num_turns += 1;
+                    self.players.current_mut().stats.end_turn();
+                    self.players.advance();
                 }
 
                 // TODO:2 press 1-9 to fastswap to player turn
@@ -180,18 +195,30 @@ impl TurnTimeTracker {
             );
 
             let text_line_info = match (self.time_display_mode, self.text_detail_mode) {
-                (TimeDisplayMode::Hidden, _) => "".to_string(),
+                (TimeDisplayMode::Hidden, _) => {
+                    if i == current_player_index {
+                        format_duration_concise(player.stats.current_turn_duration)
+                    } else {
+                        "".to_string()
+                    }
+                }
                 (TimeDisplayMode::Shown, TextDetailMode::Concise) => format!(
                     "{} ({: >2.0}%)",
                     format_duration_concise(player.total_time),
                     100.0 * (player.total_time.as_secs_f32() / all_total_time.as_secs_f32()),
                 ),
                 (TimeDisplayMode::Shown, TextDetailMode::Detailed) => format!(
-                    "{} ({: >2.0}%) -- ({} turns; avg {:.3} sec/turn)",
+                    "{} ({: >2.0}%) -- ({} turns; avg: {}, max: {}, median: {})",
                     format_duration_detailed(player.total_time),
                     100.0 * (player.total_time.as_secs_f32() / all_total_time.as_secs_f32()),
-                    player.num_turns,
-                    player.total_time.as_secs_f32() / player.num_turns as f32,
+                    player.stats.num_turns(),
+                    format_duration_stats(if player.stats.num_turns() == 0 {
+                        None
+                    } else {
+                        Some(player.total_time / player.stats.num_turns() as u32)
+                    }),
+                    format_duration_stats(player.stats.max_turn()),
+                    format_duration_stats(player.stats.median_turn())
                 ),
             };
 
@@ -280,29 +307,19 @@ fn format_duration_detailed(duration: Duration) -> String {
     format!("{hours:02}:{minutes:02}:{seconds:02}.{hundredths:02.0}")
 }
 
-#[derive(Copy, Clone)]
-enum TimerState {
-    Paused,
-    Running { last_tick: Timestamp },
-}
+fn format_duration_stats(duration: Option<Duration>) -> String {
+    let total_seconds = duration.unwrap_or_default().as_secs();
+    let minutes = total_seconds / 60;
+    let seconds = total_seconds % 60;
 
-#[derive(Copy, Clone)]
-enum TextDetailMode {
-    Concise,
-    Detailed,
-}
-
-#[derive(Copy, Clone)]
-enum TimeDisplayMode {
-    Shown,
-    Hidden,
+    format!("{minutes:02}:{seconds:02}")
 }
 
 struct Player {
     display_name: String,
     display_color: mq::Color,
-    num_turns: usize,
     total_time: Duration,
+    stats: PlayerTurnDurationStats,
 }
 
 impl Player {
@@ -310,8 +327,92 @@ impl Player {
         Self {
             display_name: display_name.into(),
             display_color,
-            num_turns: 0,
             total_time: Duration::ZERO,
+            stats: PlayerTurnDurationStats::new(),
+        }
+    }
+
+    pub(crate) fn tick_frame(&mut self, elapsed_tick_time: Duration) {
+        self.total_time += elapsed_tick_time;
+        self.stats.tick_frame(elapsed_tick_time);
+    }
+}
+
+struct PlayerTurnDurationStats {
+    current_turn_duration: Duration,
+    completed_turn_durations: BinaryHeap<Duration>,
+}
+
+impl PlayerTurnDurationStats {
+    // Don't count turns towards stats if they're a "quick" press to skip to the next player.
+    const DONT_COUNT_TURN_THRESHOLD: Duration = Duration::from_millis(700);
+
+    pub(crate) fn new() -> Self {
+        Self {
+            current_turn_duration: Duration::ZERO,
+            completed_turn_durations: BinaryHeap::new(),
+        }
+    }
+
+    pub(crate) fn end_turn(&mut self) {
+        if self.current_turn_duration >= Self::DONT_COUNT_TURN_THRESHOLD {
+            self.completed_turn_durations
+                .push(self.current_turn_duration);
+        }
+        self.current_turn_duration = Duration::ZERO;
+    }
+
+    pub(crate) fn tick_frame(&mut self, elapsed_tick_time: Duration) {
+        self.current_turn_duration += elapsed_tick_time;
+    }
+
+    pub(crate) fn num_turns(&self) -> usize {
+        let current_turn = if self.current_turn_duration.is_zero() {
+            0
+        } else {
+            1
+        };
+
+        current_turn + self.completed_turn_durations.len()
+    }
+
+    pub(crate) fn max_turn(&self) -> Option<Duration> {
+        let opt_max_completed = self.completed_turn_durations.peek();
+        let opt_current = if self.current_turn_duration.is_zero() {
+            None
+        } else {
+            Some(self.current_turn_duration)
+        };
+
+        match (opt_max_completed, opt_current) {
+            (Some(a), Some(b)) => Some(max(*a, b)),
+            (Some(a), None) => Some(*a),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
+        }
+    }
+
+    // Sub-optimal, but whatever
+    pub(crate) fn median_turn(&self) -> Option<Duration> {
+        let mut sorted_turns = self.completed_turn_durations.clone();
+        if !self.current_turn_duration.is_zero() {
+            sorted_turns.push(self.current_turn_duration);
+        }
+        let sorted_turns_vec = sorted_turns.into_sorted_vec();
+
+        if sorted_turns_vec.is_empty() {
+            return None;
+        }
+
+        if 0 == sorted_turns_vec.len() % 2 {
+            // even length
+            let median_index_1 = sorted_turns_vec.len() / 2 - 1;
+            let median_index_2 = sorted_turns_vec.len() / 2;
+            Some((sorted_turns_vec[median_index_1] + sorted_turns_vec[median_index_2]) / 2)
+        } else {
+            // odd length
+            let median_index = sorted_turns_vec.len() / 2;
+            Some(sorted_turns_vec[median_index])
         }
     }
 }
@@ -350,11 +451,8 @@ mod infinite_iterator {
             &mut self.items[self.current_index]
         }
 
-        pub(crate) fn increment(&mut self) {
-            if self.items.is_empty() {
-                panic!("Can't call increment() on empty InfiniteIterator");
-            }
-
+        pub(crate) fn advance(&mut self) {
+            self.check_invariants("advance");
             self.current_index = (self.current_index + 1) % self.items.len();
         }
 
