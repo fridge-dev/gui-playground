@@ -17,14 +17,16 @@ const KEY_PLAYER_EDIT_PASSWORD: mq::KeyCode = mq::KeyCode::P;
 const KEY_COPY_SEED: mq::KeyCode = mq::KeyCode::S;
 
 // Game logic consts
-const NUM_COLORS: usize = 6;
-const COLOR_PALETTE: [Color; NUM_COLORS] = [
+const COLOR_PALETTE: [Color; 6] = [
     Color::Red,
     Color::Orange,
     Color::Yellow,
+    // Color::NeonGreen,
     Color::Green,
+    // Color::LightBlue,
     Color::Blue,
     Color::Purple,
+    // Color::Pink,
 ];
 const NUM_SLOTS_PER_ROW: usize = 4;
 const NUM_GUESSES: usize = 8;
@@ -45,7 +47,7 @@ const PEG_SIZE: f32 = 40.0;
 const PEG_RADIUS: f32 = PEG_SIZE / 2.0;
 const PEG_PADDING: f32 = 10.0;
 const SLOT_PEG_FONT_SIZE: u16 = 24;
-const WIN_TITLES: [&str; NUM_GUESSES] = [
+const WIN_TITLES: [&str; 8] = [
     "LUCKER DUCKER",
     "lucker ducker",
     "goated mastermind",
@@ -61,9 +63,11 @@ const FPS_FONT_SIZE: u16 = 20;
 const FPS_TEXT_PADDING: f32 = 3.0;
 
 // Features to do:
-// - display seed, add ability to seed run
-// - pvp
-// - variable consts
+// - display controls
+// - dynamically variable game params (num colors, num slots, num guesses)
+// - pvp (https://docs.rs/gloo-net/latest/gloo_net )
+// - display rules
+// - add ability to seed run
 pub struct MastermindGame {
     state: GameState,
     password: Password,
@@ -91,7 +95,7 @@ enum GameState {
 
 /// Separate mod to enforce RNG state and immutability.
 mod password {
-    use crate::{Color, NUM_SLOTS_PER_ROW};
+    use crate::{Color, COLOR_PALETTE, NUM_SLOTS_PER_ROW};
     use better_quad::bq_rand;
 
     #[derive(Copy, Clone)]
@@ -110,12 +114,7 @@ mod password {
         pub(super) fn random() -> Self {
             bq_rand::randomize_seed();
             Self {
-                password: [
-                    Color::random(),
-                    Color::random(),
-                    Color::random(),
-                    Color::random(),
-                ],
+                password: Color::random_array(&COLOR_PALETTE),
                 source: PasswordSource::Random {
                     seed: bq_rand::get_last_set_seed(),
                 },
@@ -342,6 +341,8 @@ impl MastermindGame {
 
     fn draw(&self) {
         mq::clear_background(mq::DARKBROWN);
+        // Between BROWN and BEIGE
+        let board_color = mq::Color::new(0.70, 0.60, 0.46, 1.0);
 
         let row_width_guess =
             SLOT_SIZE * SLOTS_PER_ROW_F32 + SLOT_PADDING * (SLOTS_PER_ROW_F32 + 1.0);
@@ -362,7 +363,7 @@ impl MastermindGame {
             BOARD_OFFSET_Y,
             row_width_guess + row_width_key,
             board_height,
-            mq::BROWN,
+            board_color,
         );
 
         // Vertical separator of Guess-Key
@@ -389,7 +390,7 @@ impl MastermindGame {
         // Password - overwrite space already drawn with Board
         let password_rectangle_color = match &self.state {
             GameState::InProgress { .. } => mq::BLACK,
-            GameState::EditPassword => mq::BROWN,
+            GameState::EditPassword => board_color,
             GameState::Victory { .. } => mq::GREEN,
             GameState::TooManyGuesses => mq::RED,
         };
@@ -533,11 +534,14 @@ impl MastermindGame {
         match &self.state {
             GameState::InProgress { .. } | GameState::EditPassword => {}
             GameState::Victory { total_time } => {
+                let win_title = WIN_TITLES
+                    .get(self.history.len() - 1)
+                    .unwrap_or(WIN_TITLES.last().unwrap());
                 text::draw_multiline_left_aligned_text(
                     format!(
                         "You won in {} guesses! You are a {}!\nTime: {}\n\n{new_game_text}",
                         self.history.len(),
-                        WIN_TITLES[self.history.len() - 1],
+                        win_title,
                         format_duration(*total_time)
                     ),
                     None,
@@ -779,30 +783,43 @@ fn get_key_offset(
     (x, y)
 }
 
+#[allow(dead_code)] // allow unused colors to be easily swapped in via const
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 enum Color {
+    // OG 6
     Red,
     Orange,
     Yellow,
     Green,
     Blue,
     Purple,
+    // Additional colors for fun
+    Pink,
+    LightBlue,
+    NeonGreen,
 }
 
 impl Color {
-    fn random() -> Self {
-        let r = mq::rand::gen_range(0, COLOR_PALETTE.len());
-        COLOR_PALETTE[r]
+    fn random_array<const N: usize>(palette: &[Self]) -> [Self; N] {
+        [(); N].map(|_| Self::random(palette))
+    }
+
+    fn random(palette: &[Self]) -> Self {
+        let index = mq::rand::gen_range(0, palette.len());
+        palette[index]
     }
 
     fn as_mq(&self) -> mq::Color {
         match self {
-            Color::Red => mq::RED,
-            Color::Orange => mq::ORANGE,
-            Color::Yellow => mq::YELLOW,
-            Color::Green => mq::GREEN,
-            Color::Blue => mq::BLUE,
-            Color::Purple => mq::PURPLE,
+            Self::Red => mq::RED,
+            Self::Orange => mq::ORANGE,
+            Self::Yellow => mq::YELLOW,
+            Self::Green => mq::DARKGREEN,
+            Self::Blue => mq::BLUE,
+            Self::Purple => mq::VIOLET,
+            Self::Pink => mq::MAGENTA,
+            Self::LightBlue => mq::SKYBLUE,
+            Self::NeonGreen => mq::Color::from_hex(0x39FF14),
         }
     }
 }
@@ -823,18 +840,7 @@ fn convert_working_row_if_completed(
         return None;
     }
 
-    // More brittle than I'd like :P but trying to move fast.
-    // This could be made better by using Vec<> everywhere.
-    assert_eq!(
-        4, NUM_SLOTS_PER_ROW,
-        "changed NUM_SLOTS_PER_ROW const without changing hard-coded indexes"
-    );
-    Some([
-        working_row[0].unwrap(),
-        working_row[1].unwrap(),
-        working_row[2].unwrap(),
-        working_row[3].unwrap(),
-    ])
+    Some(working_row.map(Option::unwrap))
 }
 
 fn evaluate_guess(
