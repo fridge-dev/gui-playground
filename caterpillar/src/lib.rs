@@ -1,8 +1,4 @@
-use better_quad::mq::{
-    clear_background, draw_circle, draw_line, draw_rectangle, draw_text, get_fps, is_key_down,
-    measure_text, rand, screen_height, screen_width, KeyCode, DARKGRAY, DARKGREEN, GOLD, LIGHTGRAY,
-    LIME, WHITE,
-};
+use better_quad::{bq, mq};
 use better_quad::{
     bq::{FpsCounter, Timestamp},
     StatefulGui,
@@ -70,7 +66,10 @@ impl Default for SnakeGameState {
                 queued_dir: None,
                 next_dir_locked: false,
             },
-            fruit: (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES)),
+            fruit: (
+                mq::rand::gen_range(0, SQUARES),
+                mq::rand::gen_range(0, SQUARES),
+            ),
             score: 0,
             movement_tick_speed: INITIAL_MOVEMENT_TICK_SPEED,
             last_update: Timestamp::now(),
@@ -94,7 +93,7 @@ fn evaluate_game(state: &mut SnakeGameState, now: Timestamp) {
     state.fps_counter.tick_frame(now);
 
     if state.game_over {
-        if is_key_down(KeyCode::Enter) {
+        if mq::is_key_down(mq::KeyCode::Enter) {
             *state = SnakeGameState::default();
         }
         return;
@@ -169,7 +168,10 @@ fn evaluate_game(state: &mut SnakeGameState, now: Timestamp) {
         state.snake.head = state.snake.head + state.snake.next_dir;
         if state.snake.head == state.fruit {
             // Grow!
-            state.fruit = (rand::gen_range(0, SQUARES), rand::gen_range(0, SQUARES));
+            state.fruit = (
+                mq::rand::gen_range(0, SQUARES),
+                mq::rand::gen_range(0, SQUARES),
+            );
             state.score += 100;
             state.movement_tick_speed = Duration::from_secs_f64(
                 state.movement_tick_speed.as_secs_f64() * MOVEMENT_TICK_SPEED_MULTIPLICATIVE_FACTOR,
@@ -205,13 +207,13 @@ fn evaluate_game(state: &mut SnakeGameState, now: Timestamp) {
 
 // TODO: actual key-down press queuing (like fancy mech keyboards) would be dope and feel really good.
 fn get_dir_key_down() -> Option<Direction> {
-    if is_key_down(KeyCode::Right) {
+    if mq::is_key_down(mq::KeyCode::Right) {
         Some(Direction::Right)
-    } else if is_key_down(KeyCode::Left) {
+    } else if mq::is_key_down(mq::KeyCode::Left) {
         Some(Direction::Left)
-    } else if is_key_down(KeyCode::Up) {
+    } else if mq::is_key_down(mq::KeyCode::Up) {
         Some(Direction::Up)
-    } else if is_key_down(KeyCode::Down) {
+    } else if mq::is_key_down(mq::KeyCode::Down) {
         Some(Direction::Down)
     } else {
         None
@@ -221,92 +223,94 @@ fn get_dir_key_down() -> Option<Direction> {
 fn draw_game(state: &SnakeGameState) {
     if !state.game_over {
         // Draw game-in-progress state
-        clear_background(LIGHTGRAY);
+        mq::clear_background(mq::LIGHTGRAY);
 
-        let game_size = screen_width().min(screen_height());
+        let game_size = mq::screen_width().min(mq::screen_height());
         // 20 = total padding (10 lrud)
-        let offset_x = (screen_width() - game_size + 50.) / 2.;
-        let offset_y = (screen_height() - game_size + 50.) / 2.;
+        let offset_x = (mq::screen_width() - game_size + 50.) / 2.;
+        let offset_y = (mq::screen_height() - game_size + 50.) / 2.;
         let sq_size = (game_size - 50.) / SQUARES as f32;
 
-        draw_rectangle(offset_x, offset_y, game_size - 50., game_size - 50., WHITE);
+        mq::draw_rectangle(
+            offset_x,
+            offset_y,
+            game_size - 50.,
+            game_size - 50.,
+            mq::WHITE,
+        );
 
         for i in 1..SQUARES {
-            draw_line(
+            mq::draw_line(
                 offset_x,
                 offset_y + sq_size * i as f32,
-                screen_width() - offset_x,
+                mq::screen_width() - offset_x,
                 offset_y + sq_size * i as f32,
                 2.,
-                LIGHTGRAY,
+                mq::LIGHTGRAY,
             );
         }
 
         for i in 1..SQUARES {
-            draw_line(
+            mq::draw_line(
                 offset_x + sq_size * i as f32,
                 offset_y,
                 offset_x + sq_size * i as f32,
-                screen_height() - offset_y,
+                mq::screen_height() - offset_y,
                 2.,
-                LIGHTGRAY,
+                mq::LIGHTGRAY,
             );
         }
 
-        draw_circle(
+        mq::draw_circle(
             offset_x + state.snake.head.0 as f32 * sq_size,
             offset_y + state.snake.head.1 as f32 * sq_size,
             sq_size / 2.5,
-            DARKGREEN,
+            mq::DARKGREEN,
         );
 
         for (x, y) in &state.snake.body {
-            draw_circle(
+            mq::draw_circle(
                 offset_x + *x as f32 * sq_size,
                 offset_y + *y as f32 * sq_size,
                 sq_size / 2.5,
-                LIME,
+                mq::LIME,
             );
         }
 
-        draw_circle(
+        mq::draw_circle(
             offset_x + state.fruit.0 as f32 * sq_size,
             offset_y + state.fruit.1 as f32 * sq_size,
             sq_size / 2.5,
-            GOLD,
+            mq::GOLD,
         );
     } else {
         // Draw game-over screen.
-        clear_background(WHITE);
-        let text = "Game Over. Press [enter] to play again.";
-        let font_size = 30.;
-
-        // Center the text
-        let text_size = measure_text(text, None, font_size as _, 1.0);
-        draw_text(
-            text,
-            screen_width() / 2. - text_size.width / 2.,
-            screen_height() / 2. + text_size.height / 2.,
-            font_size,
-            DARKGRAY,
+        mq::clear_background(mq::WHITE);
+        bq::draw_text_left_aligned(
+            "Game Over. Press [enter] to play again.",
+            None,
+            30,
+            mq::DARKGRAY,
+            bq::TextAnchorPoint::window_centered(),
+            None,
         );
     }
 
     // Unconditionally draw debug info
-    draw_text(
-        format!("mqFPS: {}fps", get_fps()).as_str(),
+    mq::draw_text(
+        format!("mqFPS: {}fps", mq::get_fps()).as_str(),
         10.,
         50.,
         50.,
-        DARKGRAY,
+        mq::DARKGRAY,
     );
     let my_fps = state.fps_counter.fps();
     let my_fps_period = state.fps_counter.duration_of_last_period();
-    draw_text(
+    mq::draw_text(
         format!("myFPS: {my_fps}fps ({}s)", my_fps_period.as_secs_f64()).as_str(),
         10.,
         110.,
         50.,
-        DARKGRAY,
+        mq::DARKGRAY,
     );
 }

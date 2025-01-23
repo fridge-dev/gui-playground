@@ -1,18 +1,65 @@
 use crate::mq;
 
-/// Draws entire block of *left-aligned* text at a center point.
-pub fn draw_multiline_left_aligned_text(
+const FONT_SCALE: f32 = 1.0;
+const LINE_DISTANCE_FACTOR: f32 = 1.0;
+
+/// Draws block of text at an anchor point.
+///
+/// Handles multiline text by **left-aligning**. In the future, I may add right-aligned, center-aligned.
+pub fn draw_text_left_aligned(
     text: impl AsRef<str>,
     font: Option<&mq::Font>,
     font_size: u16,
     text_color: mq::Color,
-    text_center_point: TextCenterPoint,
+    text_anchor_point: TextAnchorPoint,
     opt_background_rectangle: Option<TextBackground>,
-) {
+) -> TextContainer {
     let text = text.as_ref();
+    let multiline_text_dimensions = measure_multiline_text(text, font, font_size);
+    let text_container = TextContainer::compute(
+        text_anchor_point,
+        &multiline_text_dimensions,
+        &opt_background_rectangle,
+    );
+
+    if let Some(background) = opt_background_rectangle {
+        // Note: Background concept of "padding" could be decoupled from color, if padding is useful
+        // without color.
+        text_container.draw_rect(background.color);
+    }
+
+    let text_x = text_container.rect_x + text_container.text_padding_x;
+    // mq is weird here. y is the bottom left coord of the _first_ line.
+    let text_y = text_container.rect_y
+        + text_container.text_padding_y
+        + multiline_text_dimensions.text_line_dimensions[0].offset_y;
+    mq::draw_multiline_text(
+        text,
+        text_x,
+        text_y,
+        font_size as f32,
+        Some(LINE_DISTANCE_FACTOR),
+        text_color,
+    );
+
+    text_container
+}
+
+struct MultilineTextDimensions {
+    text_line_dimensions: Vec<mq::TextDimensions>,
+    max_width: f32,
+    total_height: f32,
+}
+
+/// Returns (max_width, total_height) of rect to contain text
+fn measure_multiline_text(
+    text: &str,
+    font: Option<&mq::Font>,
+    font_size: u16,
+) -> MultilineTextDimensions {
     let text_line_dimensions = text
         .lines()
-        .map(|line| mq::measure_text(line, font, font_size, 1.0))
+        .map(|line| mq::measure_text(line, font, font_size, FONT_SCALE))
         .collect::<Vec<_>>();
 
     let mut max_width = 0f32;
@@ -28,112 +75,55 @@ pub fn draw_multiline_left_aligned_text(
     let total_height =
         (text_line_dimensions.len() - 1) as f32 * font_size as f32 + height_of_last_line;
 
-    let rect_x = text_center_point.x - (max_width / 2.0);
-    let rect_y = text_center_point.y - (total_height / 2.0);
-    if let Some(background) = opt_background_rectangle {
-        draw_text_background_rectangle(background, rect_x, rect_y, max_width, total_height);
-    }
-
-    let text_x = rect_x;
-    // mq is weird here. y is the y of the first line.
-    let text_y = rect_y + text_line_dimensions[0].height;
-    mq::draw_multiline_text(
-        text,
-        text_x,
-        text_y,
-        font_size as f32,
-        Some(1.0),
-        text_color,
-    );
-}
-
-pub fn draw_centered_text(
-    text: impl AsRef<str>,
-    font: Option<&mq::Font>,
-    font_size: u16,
-    color: mq::Color,
-    text_center_point: TextCenterPoint,
-    opt_background_rectangle: Option<TextBackground>,
-) {
-    let text_dimensions = mq::measure_text(text.as_ref(), font, font_size, 1.0);
-    let text_x = text_center_point.x - (text_dimensions.width / 2.0);
-    let text_y = text_center_point.y + (text_dimensions.height / 2.0);
-
-    if let Some(background) = opt_background_rectangle {
-        draw_text_background_rectangle(
-            background,
-            text_x,
-            text_y - text_dimensions.offset_y,
-            text_dimensions.width,
-            text_dimensions.height,
-        )
-    }
-
-    mq::draw_text(text.as_ref(), text_x, text_y, font_size as f32, color);
-}
-
-// TODO: generic support for anchor points
-pub struct TextCenterPoint {
-    x: f32,
-    y: f32,
-}
-
-impl TextCenterPoint {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self { x, y }
-    }
-
-    pub fn for_window() -> Self {
-        Self::new(mq::screen_width() / 2.0, mq::screen_height() / 2.0)
+    MultilineTextDimensions {
+        text_line_dimensions,
+        max_width,
+        total_height,
     }
 }
 
+/// Imagine you have a text box. This describes which part of the text box is positioned at the
+/// specified (x,y) coord.
 #[derive(Copy, Clone)]
-pub struct TextTopLeftPoint {
-    x: f32,
-    y: f32,
+pub enum TextAnchorPoint {
+    TopLeft { x: f32, y: f32 },
+    TopRight { x: f32, y: f32 },
+    Center { x: f32, y: f32 },
+    BottomLeft { x: f32, y: f32 },
+    BottomRight { x: f32, y: f32 },
 }
 
-impl TextTopLeftPoint {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self { x, y }
+impl TextAnchorPoint {
+    pub fn window_centered() -> Self {
+        Self::Center {
+            x: mq::screen_width() / 2.0,
+            y: mq::screen_height() / 2.0,
+        }
     }
 
-    pub fn xy(&self) -> (f32, f32) {
-        (self.x, self.y)
+    pub fn window_bottom_left() -> Self {
+        Self::BottomLeft {
+            x: 0.0,
+            y: mq::screen_height(),
+        }
+    }
+
+    pub fn window_bottom_right() -> Self {
+        Self::BottomRight {
+            x: mq::screen_width(),
+            y: mq::screen_height(),
+        }
+    }
+
+    pub fn window_top_right() -> Self {
+        Self::TopRight {
+            x: mq::screen_width(),
+            y: 0.0,
+        }
     }
 }
 
-// TODO: support multiline text
-pub fn draw_text(
-    text: impl AsRef<str>,
-    font: Option<&mq::Font>,
-    font_size: u16,
-    color: mq::Color,
-    text_top_left_point: TextTopLeftPoint,
-    opt_background_rectangle: Option<TextBackground>,
-) {
-    let text_dimensions = mq::measure_text(text.as_ref(), font, font_size, 1.0);
-
-    if let Some(background) = opt_background_rectangle {
-        draw_text_background_rectangle(
-            background,
-            text_top_left_point.x,
-            text_top_left_point.y,
-            text_dimensions.width,
-            text_dimensions.height,
-        )
-    }
-
-    mq::draw_text(
-        text.as_ref(),
-        text_top_left_point.x,
-        text_top_left_point.y + text_dimensions.offset_y,
-        font_size as f32,
-        color,
-    );
-}
-
+/// A visual UI rectangle to be drawn.
 #[derive(Copy, Clone)]
 pub struct TextBackground {
     pub color: mq::Color,
@@ -141,18 +131,59 @@ pub struct TextBackground {
     pub y_padding: f32,
 }
 
-fn draw_text_background_rectangle(
-    background: TextBackground,
-    text_x: f32,
-    text_y: f32,
-    text_width: f32,
-    text_height: f32,
-) {
-    mq::draw_rectangle(
-        text_x - background.x_padding,
-        text_y - background.y_padding,
-        text_width + background.x_padding * 2.0,
-        text_height + background.y_padding * 2.0,
-        background.color,
-    );
+/// Rectangle that contains text. May or may not be a visible rectangle (see optional text background).
+/// This hopefully alleviates annoyance of dealing with shapes anchored to **top** left coordinate, but
+/// text anchored to **bottom** left coordinate.
+#[derive(Copy, Clone)]
+pub struct TextContainer {
+    pub rect_x: f32,
+    pub rect_y: f32,
+    pub rect_width: f32,
+    pub rect_height: f32,
+    pub text_padding_x: f32,
+    pub text_padding_y: f32,
+}
+
+impl TextContainer {
+    fn compute(
+        text_anchor_point: TextAnchorPoint,
+        multiline_text_dimensions: &MultilineTextDimensions,
+        opt_background_rectangle: &Option<TextBackground>,
+    ) -> Self {
+        let (background_rect_padding_x, background_rect_padding_y) = match opt_background_rectangle
+        {
+            None => (0.0, 0.0),
+            Some(bg_rect) => (bg_rect.x_padding, bg_rect.y_padding),
+        };
+
+        let total_width = multiline_text_dimensions.max_width + background_rect_padding_x * 2.0;
+        let total_height = multiline_text_dimensions.total_height + background_rect_padding_y * 2.0;
+
+        let (x, y) = match text_anchor_point {
+            TextAnchorPoint::TopLeft { x, y } => (x, y),
+            TextAnchorPoint::TopRight { x, y } => (x - total_width, y),
+            TextAnchorPoint::Center { x, y } => (x - (total_width / 2.0), y - (total_height / 2.0)),
+            TextAnchorPoint::BottomLeft { x, y } => (x, y - total_height),
+            TextAnchorPoint::BottomRight { x, y } => (x - total_width, y - total_height),
+        };
+
+        Self {
+            rect_x: x,
+            rect_y: y,
+            rect_width: total_width,
+            rect_height: total_height,
+            text_padding_x: background_rect_padding_x,
+            text_padding_y: background_rect_padding_y,
+        }
+    }
+
+    fn draw_rect(&self, color: mq::Color) {
+        mq::draw_rectangle(
+            self.rect_x,
+            self.rect_y,
+            self.rect_width,
+            self.rect_height,
+            color,
+        );
+    }
 }

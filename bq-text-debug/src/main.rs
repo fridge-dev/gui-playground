@@ -1,5 +1,6 @@
+use better_quad::bq::TextAnchorPoint;
 use better_quad::{
-    bq::{self, TextBackground, TextCenterPoint, TextTopLeftPoint, Timestamp},
+    bq::{self, TextBackground, Timestamp},
     mq, StatefulGui,
 };
 
@@ -38,27 +39,27 @@ fn draw_mouse_coordinates() {
     let (mouse_x, mouse_y) = mq::mouse_position();
     let mouse_x = mouse_x as u32;
     let mouse_y = mouse_y as u32;
-    bq::draw_text(
+    bq::draw_text_left_aligned(
         format!("({mouse_x:3}, {mouse_y:3})"),
         None,
         25,
         mq::BLACK,
-        TextTopLeftPoint::new(0.0, 0.0),
+        TextAnchorPoint::TopLeft { x: 0.0, y: 0.0 },
         Some(TextBackground {
             color: mq::WHITE,
             x_padding: 0.0,
             y_padding: 0.0,
         }),
-    )
+    );
 }
 
 fn draw_text_examples() {
-    bq::draw_multiline_left_aligned_text(
+    bq::draw_text_left_aligned(
         "bbbb",
         None,
         30,
         mq::BLACK,
-        TextCenterPoint::new(100.0, 100.0),
+        TextAnchorPoint::Center { x: 100.0, y: 100.0 },
         Some(TextBackground {
             color: mq::WHITE,
             x_padding: 2.0,
@@ -67,12 +68,12 @@ fn draw_text_examples() {
     );
     bq::draw_circle(100.0, 100.0, 3.0, mq::RED);
 
-    bq::draw_multiline_left_aligned_text(
-        "aaaa\nbbbb\ncccc",
+    bq::draw_text_left_aligned(
+        "aaa\n\nyyy",
         None,
         30,
         mq::BLACK,
-        TextCenterPoint::new(200.0, 100.0),
+        TextAnchorPoint::Center { x: 200.0, y: 100.0 },
         Some(TextBackground {
             color: mq::WHITE,
             x_padding: 2.0,
@@ -80,4 +81,20 @@ fn draw_text_examples() {
         }),
     );
     bq::draw_circle(200.0, 100.0, 3.0, mq::RED);
+
+    // Still something funky going on with the placement of first line's y, but whatever. Good enough
+    // for now.
+    bq::draw_text_left_aligned(
+        "AAA\n\nyyy",
+        None,
+        30,
+        mq::BLACK,
+        TextAnchorPoint::Center { x: 260.0, y: 100.0 },
+        Some(TextBackground {
+            color: mq::WHITE,
+            x_padding: 2.0,
+            y_padding: 2.0,
+        }),
+    );
+    bq::draw_circle(260.0, 100.0, 3.0, mq::RED);
 }

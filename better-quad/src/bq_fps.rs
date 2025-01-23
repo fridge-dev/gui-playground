@@ -1,4 +1,5 @@
-use crate::bq_text::{TextBackground, TextTopLeftPoint};
+use crate::bq::{TextAnchorPoint, TextContainer};
+use crate::bq_text::TextBackground;
 use crate::bq_timestamp::Timestamp;
 use crate::{bq_text, mq};
 use std::time::Duration;
@@ -52,27 +53,22 @@ impl Default for FpsCounter {
 }
 
 /// Opinionated, single-purpose way to display FPS.
-pub fn draw_fps_text_bottom_right(fps_counter: &FpsCounter) -> TextTopLeftPoint {
+pub fn draw_fps_text_bottom_right(fps_counter: &FpsCounter) -> TextContainer {
     const FPS_FONT_SIZE: u16 = 20;
-    const FPS_TEXT_PADDING: f32 = 3.0;
+    const FPS_TEXT_PADDING: f32 = 6.0;
 
-    let fps_text = format!("{} FPS", fps_counter.fps());
-    let fps_text_dim = mq::measure_text("120 FPS", None, FPS_FONT_SIZE, 1.0);
-    let fps_text_x = mq::screen_width() - fps_text_dim.width - (FPS_TEXT_PADDING * 2.0);
-    let fps_text_y = mq::screen_height() - fps_text_dim.offset_y - (FPS_TEXT_PADDING * 2.0);
-    let top_left_point = TextTopLeftPoint::new(fps_text_x, fps_text_y);
-    bq_text::draw_text(
+    let fps_text = format!("{:>3} FPS", fps_counter.fps());
+
+    bq_text::draw_text_left_aligned(
         fps_text,
         None,
         FPS_FONT_SIZE,
         mq::BLACK,
-        top_left_point,
+        TextAnchorPoint::window_bottom_right(),
         Some(TextBackground {
             color: mq::Color::new(1.00, 1.00, 1.00, 0.9),
             x_padding: FPS_TEXT_PADDING,
             y_padding: FPS_TEXT_PADDING,
         }),
-    );
-
-    top_left_point
+    )
 }

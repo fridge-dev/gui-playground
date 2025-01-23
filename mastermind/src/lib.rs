@@ -1,6 +1,7 @@
 use crate::password::{Password, PasswordSource};
+use better_quad::bq::TextAnchorPoint;
 use better_quad::{
-    bq::{self, FpsCounter, TextBackground, TextCenterPoint, TextTopLeftPoint, Timestamp},
+    bq::{self, FpsCounter, TextBackground, Timestamp},
     StatefulGui,
 };
 use macroquad::prelude as mq;
@@ -509,44 +510,41 @@ impl MastermindGame {
                 + PEG_PADDING
                 + PEG_RADIUS;
             bq::draw_circle(x, pegs_y, PEG_RADIUS, color.as_mq());
-            bq::draw_centered_text(
+            bq::draw_text_left_aligned(
                 format!("{}", i + 1),
                 None,
                 SLOT_PEG_FONT_SIZE,
                 mq::BLACK,
-                TextCenterPoint::new(x, pegs_y),
+                TextAnchorPoint::Center { x, y: pegs_y },
                 None,
             );
         }
 
         // Text - controls
-        let controls_text = vec![
-            "Press [number key] to select color".to_string(),
-            format!("Press [{}] to submit guess", lowercase(KEY_SUBMIT)),
-            format!(
-                "Press [{}] to toggle numbers display",
-                lowercase(KEY_TOGGLE_NUMBER_OVERLAY)
-            ),
-            format!(
-                "Press [{}] to edit password",
-                lowercase(KEY_PLAYER_EDIT_PASSWORD)
-            ),
-        ];
-        let controls_text_base_y = pegs_y + PEG_RADIUS + PEG_PADDING + 5.0;
-        for (i, controls_text_line) in controls_text.into_iter().enumerate() {
-            bq::draw_text(
-                controls_text_line,
-                None,
-                25,
-                mq::BLACK,
-                TextTopLeftPoint::new(BOARD_OFFSET_X, controls_text_base_y + 25.0 * i as f32),
-                Some(TextBackground {
-                    color: mq::Color::new(1.0, 1.0, 1.0, 0.7),
-                    x_padding: 1.0,
-                    y_padding: 2.5,
-                }),
-            );
-        }
+        let controls_text = format!(
+            "Press [number key] to select color\n\
+            Press [{}] to submit guess\n\
+            Press [{}] to toggle numbers display\n\
+            Press [{}] to edit password",
+            lowercase(KEY_SUBMIT),
+            lowercase(KEY_TOGGLE_NUMBER_OVERLAY),
+            lowercase(KEY_PLAYER_EDIT_PASSWORD),
+        );
+        bq::draw_text_left_aligned(
+            controls_text,
+            None,
+            25,
+            mq::BLACK,
+            TextAnchorPoint::TopLeft {
+                x: BOARD_OFFSET_X,
+                y: pegs_y + PEG_RADIUS + PEG_PADDING + 5.0,
+            },
+            Some(TextBackground {
+                color: mq::Color::new(1.0, 1.0, 1.0, 0.7),
+                x_padding: 2.5,
+                y_padding: 2.5,
+            }),
+        );
 
         // Text - new game
         let new_game_text = format!(
@@ -565,7 +563,7 @@ impl MastermindGame {
                 let win_title = WIN_TITLES
                     .get(self.history.len() - 1)
                     .unwrap_or(WIN_TITLES.last().unwrap());
-                bq::draw_multiline_left_aligned_text(
+                bq::draw_text_left_aligned(
                     format!(
                         "You won in {} guesses! You are a {}!\nTime: {}\n\n{new_game_text}",
                         self.history.len(),
@@ -575,17 +573,17 @@ impl MastermindGame {
                     None,
                     25,
                     mq::DARKGREEN,
-                    TextCenterPoint::for_window(),
+                    TextAnchorPoint::window_centered(),
                     Some(new_game_text_background),
                 );
             }
             GameState::TooManyGuesses => {
-                bq::draw_multiline_left_aligned_text(
+                bq::draw_text_left_aligned(
                     format!("You lose lmao\n\n{new_game_text}"),
                     None,
                     25,
                     mq::RED,
-                    TextCenterPoint::for_window(),
+                    TextAnchorPoint::window_centered(),
                     Some(new_game_text_background),
                 );
             }
@@ -593,22 +591,21 @@ impl MastermindGame {
 
         // FPS
         let fps_text_top_left = bq::draw_fps_text_bottom_right(&self.fps_counter);
-        let (fps_text_x, _) = fps_text_top_left.xy();
 
         // Seed
         let seed_text = match self.password.source() {
             PasswordSource::Random { seed } => format!("Seed: {seed}"),
             PasswordSource::Player => "Seed: N/A".to_string(),
         };
-        let seed_text_dim = mq::measure_text(&seed_text, None, SEED_FONT_SIZE, 1.0);
-        let seed_text_x = fps_text_x - seed_text_dim.width - (SEED_TEXT_PADDING * 3.0);
-        let seed_text_y = mq::screen_height() - seed_text_dim.offset_y - (SEED_TEXT_PADDING * 2.0);
-        bq::draw_text(
+        bq::draw_text_left_aligned(
             seed_text,
             None,
             SEED_FONT_SIZE,
             mq::WHITE,
-            TextTopLeftPoint::new(seed_text_x, seed_text_y),
+            TextAnchorPoint::BottomRight {
+                x: fps_text_top_left.rect_x,
+                y: mq::screen_height(),
+            },
             Some(TextBackground {
                 color: mq::BLACK,
                 x_padding: SEED_TEXT_PADDING,
@@ -730,12 +727,12 @@ mod guess_circles_ij {
     }
 
     fn draw_text_overlay(x: f32, y: f32, color: mq::Color, text: impl AsRef<str>) {
-        bq::draw_centered_text(
+        bq::draw_text_left_aligned(
             text,
             None,
             SLOT_PEG_FONT_SIZE,
             color,
-            bq::TextCenterPoint::new(x, y),
+            bq::TextAnchorPoint::Center { x, y },
             None,
         );
     }
