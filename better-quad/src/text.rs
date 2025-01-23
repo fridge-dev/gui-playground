@@ -107,6 +107,7 @@ pub fn draw_centered_text(
     mq::draw_text(text.as_ref(), text_x, text_y, font_size as f32, color);
 }
 
+// TODO: generic support for anchor points
 pub struct TextCenterPoint {
     x: f32,
     y: f32,
@@ -133,6 +134,7 @@ impl TextTopLeftPoint {
     }
 }
 
+// TODO: support multiline text
 pub fn draw_text(
     text: impl AsRef<str>,
     font: Option<&mq::Font>,

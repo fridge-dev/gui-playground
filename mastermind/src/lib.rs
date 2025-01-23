@@ -154,7 +154,7 @@ impl StatefulGui for MastermindGame {
             window_title: "Mastermind".to_string(),
             // TODO less brittle const
             window_width: 480,
-            window_height: 670,
+            window_height: 770,
             ..Default::default()
         }
     }
@@ -503,30 +503,59 @@ impl MastermindGame {
         let intra_peg_x_padding = ((row_width_guess + row_width_key)
             - (COLOR_PALETTE.len() as f32 * PEG_SIZE + PEG_PADDING * 2.0))
             / (COLOR_PALETTE.len() as f32 - 1.0);
+        let pegs_y = BOARD_OFFSET_Y + board_height + PEG_PADDING + PEG_RADIUS;
         for (i, color) in COLOR_PALETTE.iter().enumerate() {
             let x = BOARD_OFFSET_X
                 + (intra_peg_x_padding + PEG_RADIUS * 2.0) * i as f32
                 + PEG_PADDING
                 + PEG_RADIUS;
-            let y = BOARD_OFFSET_Y + board_height + PEG_PADDING + PEG_RADIUS;
-            fine_circle::draw(x, y, PEG_RADIUS, color.as_mq());
+            fine_circle::draw(x, pegs_y, PEG_RADIUS, color.as_mq());
             text::draw_centered_text(
                 format!("{}", i + 1),
                 None,
                 SLOT_PEG_FONT_SIZE,
                 mq::BLACK,
-                TextCenterPoint::new(x, y),
+                TextCenterPoint::new(x, pegs_y),
                 None,
             );
         }
 
-        // Text
+        // Text - controls
+        let controls_text = vec![
+            "Press [number key] to select color".to_string(),
+            format!("Press [{}] to submit guess", lowercase(KEY_SUBMIT)),
+            format!(
+                "Press [{}] to toggle numbers display",
+                lowercase(KEY_TOGGLE_NUMBER_OVERLAY)
+            ),
+            format!(
+                "Press [{}] to edit password",
+                lowercase(KEY_PLAYER_EDIT_PASSWORD)
+            ),
+        ];
+        let controls_text_base_y = pegs_y + PEG_RADIUS + PEG_PADDING + 5.0;
+        for (i, controls_text_line) in controls_text.into_iter().enumerate() {
+            text::draw_text(
+                controls_text_line,
+                None,
+                25,
+                mq::BLACK,
+                TextTopLeftPoint::new(BOARD_OFFSET_X, controls_text_base_y + 25.0 * i as f32),
+                Some(TextBackground {
+                    color: mq::Color::new(1.0, 1.0, 1.0, 0.7),
+                    x_padding: 1.0,
+                    y_padding: 2.5,
+                }),
+            );
+        }
+
+        // Text - new game
         let new_game_text = format!(
             "Press [{}] to replay the same password.\nPress [{}] for a new password.",
-            format!("{KEY_REPLAY_PASSWORD:?}").to_lowercase(),
-            format!("{KEY_NEW_PASSWORD:?}").to_lowercase(),
+            lowercase(KEY_REPLAY_PASSWORD),
+            lowercase(KEY_NEW_PASSWORD),
         );
-        let text_background = TextBackground {
+        let new_game_text_background = TextBackground {
             color: mq::Color::new(0.78, 0.78, 0.78, 0.8),
             x_padding: 2.0,
             y_padding: 2.0,
@@ -548,7 +577,7 @@ impl MastermindGame {
                     25,
                     mq::DARKGREEN,
                     TextCenterPoint::for_window(),
-                    Some(text_background),
+                    Some(new_game_text_background),
                 );
             }
             GameState::TooManyGuesses => {
@@ -558,7 +587,7 @@ impl MastermindGame {
                     25,
                     mq::RED,
                     TextCenterPoint::for_window(),
-                    Some(text_background),
+                    Some(new_game_text_background),
                 );
             }
         }
@@ -893,6 +922,10 @@ fn format_duration(duration: Duration) -> String {
     } else {
         format!("{minutes:02}:{seconds:02}.{hundredths:02.0}")
     }
+}
+
+fn lowercase(key_code: mq::KeyCode) -> String {
+    format!("{key_code:?}").to_lowercase()
 }
 
 /// Whether or not numbers are shown over colors in the history and working row.
