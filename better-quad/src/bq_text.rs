@@ -88,6 +88,7 @@ impl TextCenterPoint {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct TextTopLeftPoint {
     x: f32,
     y: f32,
@@ -96,6 +97,10 @@ pub struct TextTopLeftPoint {
 impl TextTopLeftPoint {
     pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
+    }
+
+    pub fn xy(&self) -> (f32, f32) {
+        (self.x, self.y)
     }
 }
 

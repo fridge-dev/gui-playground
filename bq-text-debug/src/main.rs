@@ -1,6 +1,7 @@
-use better_quad::text::{TextBackground, TextCenterPoint, TextTopLeftPoint};
-use better_quad::timestamp::Timestamp;
-use better_quad::{fine_circle, mq, text, StatefulGui};
+use better_quad::{
+    bq::{self, TextBackground, TextCenterPoint, TextTopLeftPoint, Timestamp},
+    mq, StatefulGui,
+};
 
 fn window_conf() -> mq::Conf {
     BugRepro::main_conf()
@@ -37,7 +38,7 @@ fn draw_mouse_coordinates() {
     let (mouse_x, mouse_y) = mq::mouse_position();
     let mouse_x = mouse_x as u32;
     let mouse_y = mouse_y as u32;
-    text::draw_text(
+    bq::draw_text(
         format!("({mouse_x:3}, {mouse_y:3})"),
         None,
         25,
@@ -52,7 +53,7 @@ fn draw_mouse_coordinates() {
 }
 
 fn draw_text_examples() {
-    text::draw_multiline_left_aligned_text(
+    bq::draw_multiline_left_aligned_text(
         "bbbb",
         None,
         30,
@@ -64,9 +65,9 @@ fn draw_text_examples() {
             y_padding: 2.0,
         }),
     );
-    fine_circle::draw(100.0, 100.0, 3.0, mq::RED);
+    bq::draw_circle(100.0, 100.0, 3.0, mq::RED);
 
-    text::draw_multiline_left_aligned_text(
+    bq::draw_multiline_left_aligned_text(
         "aaaa\nbbbb\ncccc",
         None,
         30,
@@ -78,5 +79,5 @@ fn draw_text_examples() {
             y_padding: 2.0,
         }),
     );
-    fine_circle::draw(200.0, 100.0, 3.0, mq::RED);
+    bq::draw_circle(200.0, 100.0, 3.0, mq::RED);
 }

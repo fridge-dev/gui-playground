@@ -18,17 +18,17 @@ struct RandState {
 }
 
 /// Use this when you want to set any new seed and you don't care what it's set to.
-pub fn randomize_seed() {
-    set_seed(mq::miniquad::date::now() as _);
+pub fn randomize_rand_seed() {
+    set_rand_seed(mq::miniquad::date::now() as _);
 }
 
-pub fn set_seed(seed: u64) {
+pub fn set_rand_seed(seed: u64) {
     GLOBAL_STATE
         .last_set_seed
         .store(seed, atomic::Ordering::Relaxed);
     mq::rand::srand(seed);
 }
 
-pub fn get_last_set_seed() -> u64 {
+pub fn get_last_set_rand_seed() -> u64 {
     GLOBAL_STATE.last_set_seed.load(atomic::Ordering::Relaxed)
 }

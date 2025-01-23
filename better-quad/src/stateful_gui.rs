@@ -1,6 +1,6 @@
+use crate::bq_timestamp::Timestamp;
 use crate::init;
 use crate::mq;
-use crate::timestamp::Timestamp;
 
 /// Helpful to be disciplined about separating state mutations and drawing, and to more easily
 /// remember how to integrate with mq. Otherwise not a super useful abstraction.

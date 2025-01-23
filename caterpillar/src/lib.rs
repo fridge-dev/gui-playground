@@ -1,14 +1,12 @@
-use better_quad::fps::FpsCounter;
-use better_quad::mq::get_fps;
-use better_quad::mq::rand;
 use better_quad::mq::{
-    clear_background, draw_circle, draw_line, draw_rectangle, draw_text, measure_text,
-    screen_height, screen_width,
+    clear_background, draw_circle, draw_line, draw_rectangle, draw_text, get_fps, is_key_down,
+    measure_text, rand, screen_height, screen_width, KeyCode, DARKGRAY, DARKGREEN, GOLD, LIGHTGRAY,
+    LIME, WHITE,
 };
-use better_quad::mq::{is_key_down, KeyCode};
-use better_quad::mq::{DARKGRAY, DARKGREEN, GOLD, LIGHTGRAY, LIME, WHITE};
-use better_quad::timestamp::Timestamp;
-use better_quad::StatefulGui;
+use better_quad::{
+    bq::{FpsCounter, Timestamp},
+    StatefulGui,
+};
 use std::collections::LinkedList;
 use std::ops::Add;
 use std::time::Duration;

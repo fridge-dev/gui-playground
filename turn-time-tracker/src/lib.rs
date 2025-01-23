@@ -1,5 +1,4 @@
-use better_quad::timestamp::Timestamp;
-use better_quad::StatefulGui;
+use better_quad::{bq::Timestamp, StatefulGui};
 use infinite_iterator::InfiniteIterator;
 use macroquad::prelude as mq;
 use std::cmp::max;

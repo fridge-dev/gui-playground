@@ -10,7 +10,6 @@ pub struct Timestamp {
     seconds: f64,
 }
 
-#[allow(dead_code)] // premature abstractions, but I have relatively high confidence they may be useful, knowing std lib types
 impl Timestamp {
     pub fn now() -> Self {
         Self {

@@ -7,10 +7,10 @@ use crate::mq;
 const SIDES: u8 = 50;
 const ROTATION: f32 = 0.0;
 
-pub fn draw(x: f32, y: f32, radius: f32, color: mq::Color) {
+pub fn draw_circle(x: f32, y: f32, radius: f32, color: mq::Color) {
     mq::draw_poly(x, y, SIDES, radius, ROTATION, color);
 }
 
-pub fn draw_outline(x: f32, y: f32, radius: f32, thickness: f32, color: mq::Color) {
+pub fn draw_circle_outline(x: f32, y: f32, radius: f32, thickness: f32, color: mq::Color) {
     mq::draw_poly_lines(x, y, SIDES, radius, ROTATION, thickness, color);
 }

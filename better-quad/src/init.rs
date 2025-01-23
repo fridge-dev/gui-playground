@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 static INIT: Lazy<()> = Lazy::new(do_init);
 
 fn do_init() {
-    bq_rand::randomize_seed();
+    bq_rand::randomize_rand_seed();
 }
 
 /// Must call before starting game engine.

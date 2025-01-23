@@ -1,7 +1,8 @@
 use crate::password::{Password, PasswordSource};
-use better_quad::fps::FpsCounter;
-use better_quad::text::{TextBackground, TextCenterPoint, TextTopLeftPoint};
-use better_quad::{bq_rand, fine_circle, text, timestamp::Timestamp, StatefulGui};
+use better_quad::{
+    bq::{self, FpsCounter, TextBackground, TextCenterPoint, TextTopLeftPoint, Timestamp},
+    StatefulGui,
+};
 use macroquad::prelude as mq;
 use std::cmp::min;
 use std::collections::HashMap;
@@ -59,8 +60,6 @@ const WIN_TITLES: [&str; 8] = [
 ];
 const SEED_FONT_SIZE: u16 = 27;
 const SEED_TEXT_PADDING: f32 = 3.0;
-const FPS_FONT_SIZE: u16 = 20;
-const FPS_TEXT_PADDING: f32 = 3.0;
 
 // Features to do:
 // - display controls
@@ -96,7 +95,7 @@ enum GameState {
 /// Separate mod to enforce RNG state and immutability.
 mod password {
     use crate::{Color, COLOR_PALETTE, NUM_SLOTS_PER_ROW};
-    use better_quad::bq_rand;
+    use better_quad::bq;
 
     #[derive(Copy, Clone)]
     pub(super) struct Password {
@@ -112,11 +111,11 @@ mod password {
 
     impl Password {
         pub(super) fn random() -> Self {
-            bq_rand::randomize_seed();
+            bq::randomize_rand_seed();
             Self {
                 password: Color::random_array(&COLOR_PALETTE),
                 source: PasswordSource::Random {
-                    seed: bq_rand::get_last_set_seed(),
+                    seed: bq::get_last_set_rand_seed(),
                 },
             }
         }
@@ -140,7 +139,7 @@ mod password {
 
 impl GameState {
     fn new_game() -> Self {
-        bq_rand::randomize_seed();
+        bq::randomize_rand_seed();
         Self::InProgress {
             start_time: Timestamp::now(),
             working_row: [None; NUM_SLOTS_PER_ROW],
@@ -213,7 +212,7 @@ impl MastermindGame {
 
         if mq::is_key_pressed(KEY_COPY_SEED) {
             // freaking clipboard isn't implemented anywhere except windows. Idk if this will work.
-            mq::miniquad::window::clipboard_set(&format!("{}", bq_rand::get_last_set_seed()));
+            mq::miniquad::window::clipboard_set(&format!("{}", bq::get_last_set_rand_seed()));
         }
 
         self.apply_state_specific_updates(now);
@@ -459,7 +458,7 @@ impl MastermindGame {
             for _ in 0..row.num_correct_hits {
                 let (key_offset_x, key_offset_y) =
                     get_key_offset(key_offset_index, NUM_SLOTS_PER_ROW, key_padding, KEY_RADIUS);
-                fine_circle::draw(
+                bq::draw_circle(
                     BOARD_OFFSET_X + row_width_guess + key_offset_x,
                     BOARD_OFFSET_Y + (row_height + ROW_SEPARATOR_HEIGHT) * j + key_offset_y,
                     KEY_RADIUS,
@@ -472,7 +471,7 @@ impl MastermindGame {
                 let (key_offset_x, key_offset_y) =
                     get_key_offset(key_offset_index, NUM_SLOTS_PER_ROW, key_padding, KEY_RADIUS);
                 let medium_grey = mq::Color::new(0.38, 0.38, 0.38, 1.00);
-                fine_circle::draw(
+                bq::draw_circle(
                     BOARD_OFFSET_X + row_width_guess + key_offset_x,
                     BOARD_OFFSET_Y + (row_height + ROW_SEPARATOR_HEIGHT) * j + key_offset_y,
                     KEY_RADIUS,
@@ -489,7 +488,7 @@ impl MastermindGame {
                 get_key_offset(i, NUM_SLOTS_PER_ROW, key_padding, KEY_RADIUS);
             for j in 1..=NUM_GUESSES {
                 let j = j as f32;
-                fine_circle::draw_outline(
+                bq::draw_circle_outline(
                     BOARD_OFFSET_X + row_width_guess + key_offset_x,
                     BOARD_OFFSET_Y + (row_height + ROW_SEPARATOR_HEIGHT) * j + key_offset_y,
                     KEY_RADIUS,
@@ -509,8 +508,8 @@ impl MastermindGame {
                 + (intra_peg_x_padding + PEG_RADIUS * 2.0) * i as f32
                 + PEG_PADDING
                 + PEG_RADIUS;
-            fine_circle::draw(x, pegs_y, PEG_RADIUS, color.as_mq());
-            text::draw_centered_text(
+            bq::draw_circle(x, pegs_y, PEG_RADIUS, color.as_mq());
+            bq::draw_centered_text(
                 format!("{}", i + 1),
                 None,
                 SLOT_PEG_FONT_SIZE,
@@ -535,7 +534,7 @@ impl MastermindGame {
         ];
         let controls_text_base_y = pegs_y + PEG_RADIUS + PEG_PADDING + 5.0;
         for (i, controls_text_line) in controls_text.into_iter().enumerate() {
-            text::draw_text(
+            bq::draw_text(
                 controls_text_line,
                 None,
                 25,
@@ -566,7 +565,7 @@ impl MastermindGame {
                 let win_title = WIN_TITLES
                     .get(self.history.len() - 1)
                     .unwrap_or(WIN_TITLES.last().unwrap());
-                text::draw_multiline_left_aligned_text(
+                bq::draw_multiline_left_aligned_text(
                     format!(
                         "You won in {} guesses! You are a {}!\nTime: {}\n\n{new_game_text}",
                         self.history.len(),
@@ -581,7 +580,7 @@ impl MastermindGame {
                 );
             }
             GameState::TooManyGuesses => {
-                text::draw_multiline_left_aligned_text(
+                bq::draw_multiline_left_aligned_text(
                     format!("You lose lmao\n\n{new_game_text}"),
                     None,
                     25,
@@ -593,22 +592,8 @@ impl MastermindGame {
         }
 
         // FPS
-        let fps_text = format!("{} FPS", self.fps_counter.fps());
-        let fps_text_dim = mq::measure_text("120 FPS", None, FPS_FONT_SIZE, 1.0);
-        let fps_text_x = mq::screen_width() - fps_text_dim.width - (FPS_TEXT_PADDING * 2.0);
-        let fps_text_y = mq::screen_height() - fps_text_dim.offset_y - (FPS_TEXT_PADDING * 2.0);
-        text::draw_text(
-            fps_text,
-            None,
-            FPS_FONT_SIZE,
-            mq::BLACK,
-            TextTopLeftPoint::new(fps_text_x, fps_text_y),
-            Some(TextBackground {
-                color: mq::Color::new(1.00, 1.00, 1.00, 0.3),
-                x_padding: FPS_TEXT_PADDING,
-                y_padding: FPS_TEXT_PADDING,
-            }),
-        );
+        let fps_text_top_left = bq::draw_fps_text_bottom_right(&self.fps_counter);
+        let (fps_text_x, _) = fps_text_top_left.xy();
 
         // Seed
         let seed_text = match self.password.source() {
@@ -618,7 +603,7 @@ impl MastermindGame {
         let seed_text_dim = mq::measure_text(&seed_text, None, SEED_FONT_SIZE, 1.0);
         let seed_text_x = fps_text_x - seed_text_dim.width - (SEED_TEXT_PADDING * 3.0);
         let seed_text_y = mq::screen_height() - seed_text_dim.offset_y - (SEED_TEXT_PADDING * 2.0);
-        text::draw_text(
+        bq::draw_text(
             seed_text,
             None,
             SEED_FONT_SIZE,
@@ -636,9 +621,9 @@ impl MastermindGame {
         let mouse_on_screen = (0.0..=mq::screen_width()).contains(&mouse_x)
             && (0.0..=mq::screen_height()).contains(&mouse_y);
         if mouse_on_screen && self.mouse_moved {
-            fine_circle::draw(mouse_x, mouse_y, CURSOR_RADIUS, self.mouse_color.as_mq());
-            fine_circle::draw(mouse_x, mouse_y, 1.0, mq::BLACK);
-            fine_circle::draw_outline(mouse_x, mouse_y, CURSOR_RADIUS, 1.0, mq::BLACK);
+            bq::draw_circle(mouse_x, mouse_y, CURSOR_RADIUS, self.mouse_color.as_mq());
+            bq::draw_circle(mouse_x, mouse_y, 1.0, mq::BLACK);
+            bq::draw_circle_outline(mouse_x, mouse_y, CURSOR_RADIUS, 1.0, mq::BLACK);
             mq::show_mouse(false);
         } else {
             mq::show_mouse(true);
@@ -692,8 +677,7 @@ mod guess_circles_ij {
         NUM_SLOTS_PER_ROW, ROW_SEPARATOR_HEIGHT, SLOT_PADDING, SLOT_PEG_FONT_SIZE, SLOT_RADIUS,
         SLOT_SIZE,
     };
-    use better_quad::text::TextCenterPoint;
-    use better_quad::{fine_circle, text};
+    use better_quad::bq;
     use macroquad::prelude as mq;
 
     const CIRCLE_OUTLINE_THICKNESS: f32 = 1.0;
@@ -717,12 +701,12 @@ mod guess_circles_ij {
 
     pub(crate) fn draw_outline(i: usize, j: usize) {
         let (x, y) = compute_xy_coordinates(i, j);
-        fine_circle::draw_outline(x, y, SLOT_RADIUS, CIRCLE_OUTLINE_THICKNESS, mq::WHITE);
+        bq::draw_circle_outline(x, y, SLOT_RADIUS, CIRCLE_OUTLINE_THICKNESS, mq::WHITE);
     }
 
     pub(crate) fn draw(i: usize, j: usize, color: Color, number_overlay: NumberOverlay) {
         let (x, y) = compute_xy_coordinates(i, j);
-        fine_circle::draw(x, y, SLOT_RADIUS, color.as_mq());
+        bq::draw_circle(x, y, SLOT_RADIUS, color.as_mq());
 
         match number_overlay {
             NumberOverlay::On => {
@@ -746,12 +730,12 @@ mod guess_circles_ij {
     }
 
     fn draw_text_overlay(x: f32, y: f32, color: mq::Color, text: impl AsRef<str>) {
-        text::draw_centered_text(
+        bq::draw_centered_text(
             text,
             None,
             SLOT_PEG_FONT_SIZE,
             color,
-            TextCenterPoint::new(x, y),
+            bq::TextCenterPoint::new(x, y),
             None,
         );
     }
