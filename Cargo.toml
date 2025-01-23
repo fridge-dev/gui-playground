@@ -1,5 +1,5 @@
 [workspace]
-members = ["better-quad", "caterpillar", "mastermind", "turn-time-tracker"]
+members = ["better-quad", "bq-text-debug", "caterpillar", "mastermind", "turn-time-tracker"]
 resolver = "2"
 
 [workspace.dependencies]

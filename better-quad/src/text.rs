@@ -1,34 +1,5 @@
 use crate::mq;
 
-/// TODO: figure out why there's a bug in the background being too short height, or just write my own
-/// multiline text since mq is so hard to debug
-pub fn bug_repro() {
-    draw_multiline_left_aligned_text(
-        "bbbb",
-        None,
-        30,
-        mq::BLACK,
-        TextCenterPoint::new(100.0, 100.0),
-        Some(TextBackground {
-            color: mq::WHITE,
-            x_padding: 2.0,
-            y_padding: 2.0,
-        }),
-    );
-    draw_multiline_left_aligned_text(
-        "aaaa\nbbbb\ncccc",
-        None,
-        30,
-        mq::BLACK,
-        TextCenterPoint::new(200.0, 100.0),
-        Some(TextBackground {
-            color: mq::WHITE,
-            x_padding: 2.0,
-            y_padding: 2.0,
-        }),
-    );
-}
-
 /// Draws entire block of *left-aligned* text at a center point.
 pub fn draw_multiline_left_aligned_text(
     text: impl AsRef<str>,
@@ -45,33 +16,27 @@ pub fn draw_multiline_left_aligned_text(
         .collect::<Vec<_>>();
 
     let mut max_width = 0f32;
-    let mut total_height = 0f32;
     for text_dimensions in &text_line_dimensions {
         max_width = max_width.max(text_dimensions.width);
-        // if total_height != 0.0 then increment height by spacing, but we don't have spacing
-
-        // Hack to fix multiline empty string being ignored
-        total_height += if text_dimensions.height <= 0.0 {
-            font_size as f32
-        } else {
-            text_dimensions.height
-        };
     }
 
-    let text_x = text_center_point.x - (max_width / 2.0);
-    let text_y = text_center_point.y - (total_height / 2.0); // TODO: should this be +?
+    let mut height_of_last_line = text_line_dimensions.last().unwrap().height;
+    if height_of_last_line <= 0.0 {
+        // Hack to fix empty string last line being ignored
+        height_of_last_line = font_size as f32;
+    }
+    let total_height =
+        (text_line_dimensions.len() - 1) as f32 * font_size as f32 + height_of_last_line;
 
+    let rect_x = text_center_point.x - (max_width / 2.0);
+    let rect_y = text_center_point.y - (total_height / 2.0);
     if let Some(background) = opt_background_rectangle {
-        let first_y_offset = text_line_dimensions[0].offset_y;
-        draw_text_background_rectangle(
-            background,
-            text_x,
-            text_y - first_y_offset,
-            max_width,
-            total_height + first_y_offset,
-        );
+        draw_text_background_rectangle(background, rect_x, rect_y, max_width, total_height);
     }
 
+    let text_x = rect_x;
+    // mq is weird here. y is the y of the first line.
+    let text_y = rect_y + text_line_dimensions[0].height;
     mq::draw_multiline_text(
         text,
         text_x,
