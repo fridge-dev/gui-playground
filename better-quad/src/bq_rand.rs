@@ -1,4 +1,6 @@
+use crate::bq_timestamp::Timestamp;
 use macroquad::prelude as mq;
+use std::hash::Hasher;
 use std::sync::atomic;
 use std::sync::atomic::AtomicU64;
 
@@ -19,7 +21,14 @@ struct RandState {
 
 /// Use this when you want to set any new seed and you don't care what it's set to.
 pub fn randomize_rand_seed() {
-    set_rand_seed(mq::miniquad::date::now() as _);
+    // Hash current timestamp to use as rand seed. We could just use timestamp itself, but this makes
+    // it visually appear that the seeds are non-sequential. That wouldn't affect randomness quality
+    // in a PRNG, it's just visually satisfying when displaying the seed.
+    let mut hasher = std::hash::DefaultHasher::new();
+    hasher.write_u64(Timestamp::now().as_sec_f64() as u64);
+    let seed = hasher.finish();
+
+    set_rand_seed(seed);
 }
 
 pub fn set_rand_seed(seed: u64) {

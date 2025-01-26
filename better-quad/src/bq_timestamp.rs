@@ -13,7 +13,7 @@ pub struct Timestamp {
 impl Timestamp {
     pub fn now() -> Self {
         Self {
-            seconds: mq::get_time(),
+            seconds: mq::miniquad::date::now(),
         }
     }
 
