@@ -15,8 +15,6 @@ Maybe I'll eventually get around to implementing UI to select players at runtime
 * **h** - hide timer and pie to only show the currently active player
 * **d** - detailed stats toggle
 
-# Examples
+# Example
 
-![running](./readme-assets/app-running.png)
-
-![paused](./readme-assets/app-paused.png)
+![app running animated](./readme-assets/app-example-400.gif)
