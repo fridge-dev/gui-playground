@@ -29,6 +29,8 @@ impl Timestamp {
             None
         }
     }
+
+    // note: Shouldn't need `elapsed` as their should always be the provided `now` to do math with.
 }
 
 impl Sub for Timestamp {

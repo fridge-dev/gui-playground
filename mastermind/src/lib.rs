@@ -43,6 +43,7 @@ const ROW_SEPARATOR_HEIGHT: f32 = 1.0;
 const SLOT_SIZE: f32 = 50.0;
 const SLOT_RADIUS: f32 = SLOT_SIZE / 2.0;
 const SLOT_PADDING: f32 = 5.0;
+const WORKING_BOX_THICKNESS: f32 = 7.0;
 const KEY_SIZE: f32 = 18.0;
 const KEY_RADIUS: f32 = KEY_SIZE / 2.0;
 const PEG_SIZE: f32 = 40.0;
@@ -55,12 +56,15 @@ const WIN_TITLES: [&str; 8] = [
     "goated mastermind",
     "mastermind",
     "genius",
-    "clever loon",
+    "vic royale",
     "silly goose",
     "dangerous warbler",
 ];
 const SEED_FONT_SIZE: u16 = 27;
 const SEED_TEXT_PADDING: f32 = 3.0;
+
+// Animation consts
+const VICTORY_MOUSE_RAINBOW_ANIMATION_TICK_TIME: Duration = Duration::from_millis(65);
 
 // Features to do:
 // - display controls
@@ -89,6 +93,8 @@ enum GameState {
     EditPassword,
     Victory {
         total_time: Duration,
+        victory_timestamp: Timestamp,
+        initial_mouse_color_index: usize,
     },
     TooManyGuesses,
 }
@@ -256,8 +262,15 @@ impl MastermindGame {
                         self.history.push(complete_row);
 
                         if complete_row.num_correct_hits == NUM_SLOTS_PER_ROW {
+                            // could remove unwrap by making `mouse_color` an index, but shouldn't be a big deal.
+                            let index = COLOR_PALETTE
+                                .iter()
+                                .position(|c| *c == self.mouse_color)
+                                .unwrap();
                             self.state = GameState::Victory {
                                 total_time: now - *start_time,
+                                victory_timestamp: now,
+                                initial_mouse_color_index: index,
                             };
                             return;
                         }
@@ -302,10 +315,31 @@ impl MastermindGame {
                     self.state = GameState::new_game();
                 }
             }
-            GameState::TooManyGuesses | GameState::Victory { .. } => {
+            GameState::TooManyGuesses => {
                 if mq::is_key_pressed(KEY_REPLAY_PASSWORD) {
                     self.reset_with_same_password();
                 } else if mq::is_key_pressed(KEY_NEW_PASSWORD) {
+                    self.reset_with_new_password();
+                }
+            }
+            GameState::Victory {
+                victory_timestamp,
+                initial_mouse_color_index,
+                ..
+            } => {
+                let vic_screen_duration = now - *victory_timestamp;
+                let num_vic_screen_ticks = vic_screen_duration.as_millis()
+                    / VICTORY_MOUSE_RAINBOW_ANIMATION_TICK_TIME.as_millis();
+                let new_mouse_color_index = (*initial_mouse_color_index
+                    + (num_vic_screen_ticks as usize))
+                    % COLOR_PALETTE.len();
+                self.mouse_color = COLOR_PALETTE[new_mouse_color_index];
+
+                if mq::is_key_pressed(KEY_REPLAY_PASSWORD) {
+                    self.mouse_color = COLOR_PALETTE[*initial_mouse_color_index];
+                    self.reset_with_same_password();
+                } else if mq::is_key_pressed(KEY_NEW_PASSWORD) {
+                    self.mouse_color = COLOR_PALETTE[*initial_mouse_color_index];
                     self.reset_with_new_password();
                 }
             }
@@ -440,7 +474,7 @@ impl MastermindGame {
                 BOARD_OFFSET_Y + (row_height + ROW_SEPARATOR_HEIGHT) * j,
                 row_width_guess,
                 row_height,
-                4.0,
+                WORKING_BOX_THICKNESS,
                 mq::GOLD,
             );
         }
@@ -559,7 +593,7 @@ impl MastermindGame {
         };
         match &self.state {
             GameState::InProgress { .. } | GameState::EditPassword => {}
-            GameState::Victory { total_time } => {
+            GameState::Victory { total_time, .. } => {
                 let win_title = WIN_TITLES
                     .get(self.history.len() - 1)
                     .unwrap_or(WIN_TITLES.last().unwrap());
