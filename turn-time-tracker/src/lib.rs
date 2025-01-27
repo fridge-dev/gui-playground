@@ -1,5 +1,5 @@
+use better_quad::utils::infinite_iterator::InfiniteIterator;
 use better_quad::{bq::Timestamp, StatefulGui};
-use infinite_iterator::InfiniteIterator;
 use macroquad::prelude as mq;
 use std::cmp::max;
 use std::collections::BinaryHeap;
@@ -412,52 +412,6 @@ impl PlayerTurnDurationStats {
             // odd length
             let median_index = sorted_turns_vec.len() / 2;
             Some(sorted_turns_vec[median_index])
-        }
-    }
-}
-
-mod infinite_iterator {
-    pub(crate) struct InfiniteIterator<T> {
-        items: Vec<T>,
-        // Soft invariant: `current_index` is always a valid index into `items`.
-        // Invariant holds as long as items is non-empty.
-        current_index: usize,
-    }
-
-    impl<T> InfiniteIterator<T> {
-        pub(crate) fn new() -> Self {
-            Self {
-                items: Vec::new(),
-                current_index: 0,
-            }
-        }
-
-        pub(crate) fn push(&mut self, item: T) {
-            self.items.push(item);
-        }
-
-        fn check_invariants(&self, method_name: &'static str) {
-            if self.items.is_empty() {
-                panic!("Can't call {method_name}() on empty InfiniteIterator");
-            }
-            if self.current_index >= self.items.len() {
-                panic!("InfiniteIterator-Invariant-Bug: called {method_name}() with current_index={} and len={}.", self.current_index, self.items.len());
-            }
-        }
-
-        pub(crate) fn current_mut(&mut self) -> &mut T {
-            self.check_invariants("current_mut");
-            &mut self.items[self.current_index]
-        }
-
-        pub(crate) fn advance(&mut self) {
-            self.check_invariants("advance");
-            self.current_index = (self.current_index + 1) % self.items.len();
-        }
-
-        pub(crate) fn raw(&self) -> (&Vec<T>, usize) {
-            self.check_invariants("raw");
-            (&self.items, self.current_index)
         }
     }
 }

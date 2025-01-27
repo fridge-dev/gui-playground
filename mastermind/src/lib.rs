@@ -1,4 +1,5 @@
 use crate::password::{Password, PasswordSource};
+use crate::victory_mouse_animation::VictoryMouseAnimations;
 use better_quad::bq::TextAnchorPoint;
 use better_quad::{
     bq::{self, FpsCounter, TextBackground, Timestamp},
@@ -9,6 +10,8 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::time::Duration;
+
+mod victory_mouse_animation;
 
 // Control consts
 const KEY_SUBMIT: mq::KeyCode = mq::KeyCode::Space;
@@ -36,6 +39,7 @@ const NUM_GUESSES: usize = 8;
 // Draw consts
 const CURSOR_SIZE: f32 = 30.0;
 const CURSOR_RADIUS: f32 = CURSOR_SIZE / 2.0;
+const VICTORY_MULTI_CURSOR_OFFSET: f32 = CURSOR_SIZE;
 const SLOTS_PER_ROW_F32: f32 = NUM_SLOTS_PER_ROW as f32;
 const BOARD_OFFSET_X: f32 = 20.0;
 const BOARD_OFFSET_Y: f32 = 20.0;
@@ -63,9 +67,6 @@ const WIN_TITLES: [&str; 8] = [
 const SEED_FONT_SIZE: u16 = 27;
 const SEED_TEXT_PADDING: f32 = 3.0;
 
-// Animation consts
-const VICTORY_MOUSE_RAINBOW_ANIMATION_TICK_TIME: Duration = Duration::from_millis(65);
-
 // Features to do:
 // - display controls
 // - dynamically variable game params (num colors, num slots, num guesses)
@@ -84,7 +85,6 @@ pub struct MastermindGame {
     fps_counter: FpsCounter,
 }
 
-#[derive(Copy, Clone, PartialEq)]
 enum GameState {
     InProgress {
         start_time: Timestamp,
@@ -93,8 +93,7 @@ enum GameState {
     EditPassword,
     Victory {
         total_time: Duration,
-        victory_timestamp: Timestamp,
-        initial_mouse_color_index: usize,
+        mouse_animations: VictoryMouseAnimations,
     },
     TooManyGuesses,
 }
@@ -262,15 +261,13 @@ impl MastermindGame {
                         self.history.push(complete_row);
 
                         if complete_row.num_correct_hits == NUM_SLOTS_PER_ROW {
-                            // could remove unwrap by making `mouse_color` an index, but shouldn't be a big deal.
-                            let index = COLOR_PALETTE
-                                .iter()
-                                .position(|c| *c == self.mouse_color)
-                                .unwrap();
                             self.state = GameState::Victory {
                                 total_time: now - *start_time,
-                                victory_timestamp: now,
-                                initial_mouse_color_index: index,
+                                mouse_animations: VictoryMouseAnimations::new(
+                                    COLOR_PALETTE.map(|c| c.as_mq()).to_vec(),
+                                    now,
+                                    VICTORY_MULTI_CURSOR_OFFSET,
+                                ),
                             };
                             return;
                         }
@@ -323,23 +320,13 @@ impl MastermindGame {
                 }
             }
             GameState::Victory {
-                victory_timestamp,
-                initial_mouse_color_index,
-                ..
+                mouse_animations, ..
             } => {
-                let vic_screen_duration = now - *victory_timestamp;
-                let num_vic_screen_ticks = vic_screen_duration.as_millis()
-                    / VICTORY_MOUSE_RAINBOW_ANIMATION_TICK_TIME.as_millis();
-                let new_mouse_color_index = (*initial_mouse_color_index
-                    + (num_vic_screen_ticks as usize))
-                    % COLOR_PALETTE.len();
-                self.mouse_color = COLOR_PALETTE[new_mouse_color_index];
+                mouse_animations.tick(now);
 
                 if mq::is_key_pressed(KEY_REPLAY_PASSWORD) {
-                    self.mouse_color = COLOR_PALETTE[*initial_mouse_color_index];
                     self.reset_with_same_password();
                 } else if mq::is_key_pressed(KEY_NEW_PASSWORD) {
-                    self.mouse_color = COLOR_PALETTE[*initial_mouse_color_index];
                     self.reset_with_new_password();
                 }
             }
@@ -652,10 +639,20 @@ impl MastermindGame {
         let mouse_on_screen = (0.0..=mq::screen_width()).contains(&mouse_x)
             && (0.0..=mq::screen_height()).contains(&mouse_y);
         if mouse_on_screen && self.mouse_moved {
-            bq::draw_circle(mouse_x, mouse_y, CURSOR_RADIUS, self.mouse_color.as_mq());
-            bq::draw_circle(mouse_x, mouse_y, 1.0, mq::BLACK);
-            bq::draw_circle_outline(mouse_x, mouse_y, CURSOR_RADIUS, 1.0, mq::BLACK);
             mq::show_mouse(false);
+
+            match &self.state {
+                GameState::InProgress { .. }
+                | GameState::EditPassword
+                | GameState::TooManyGuesses => {
+                    draw_cursor(mouse_x, mouse_y, self.mouse_color.as_mq());
+                }
+                GameState::Victory {
+                    mouse_animations, ..
+                } => {
+                    mouse_animations.draw(mouse_x, mouse_y);
+                }
+            };
         } else {
             mq::show_mouse(true);
         }
@@ -673,6 +670,12 @@ impl MastermindGame {
             );
         }
     }
+}
+
+fn draw_cursor(x: f32, y: f32, color: mq::Color) {
+    bq::draw_circle(x, y, CURSOR_RADIUS, color);
+    bq::draw_circle(x, y, 1.0, mq::BLACK);
+    bq::draw_circle_outline(x, y, CURSOR_RADIUS, 1.0, mq::BLACK);
 }
 
 /// Helper to manage grid of circles.
