@@ -2,6 +2,7 @@
 pub(crate) mod bq_circle;
 pub(crate) mod bq_color;
 pub(crate) mod bq_fps;
+pub(crate) mod bq_keys;
 pub(crate) mod bq_rand;
 pub(crate) mod bq_text;
 pub(crate) mod bq_timestamp;
@@ -20,6 +21,7 @@ pub mod bq {
     pub use crate::bq_circle::*;
     pub use crate::bq_color::*;
     pub use crate::bq_fps::*;
+    pub use crate::bq_keys::*;
     pub use crate::bq_rand::*;
     pub use crate::bq_text::*;
     pub use crate::bq_timestamp::*;

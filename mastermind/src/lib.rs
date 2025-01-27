@@ -1,6 +1,6 @@
 use crate::password::{Password, PasswordSource};
 use crate::victory_mouse_animation::VictoryMouseAnimations;
-use better_quad::bq::TextAnchorPoint;
+use better_quad::bq::{BetterKeyCode, TextAnchorPoint};
 use better_quad::{
     bq::{self, FpsCounter, TextBackground, Timestamp},
     StatefulGui,
@@ -547,9 +547,9 @@ impl MastermindGame {
             Press [{}] to submit guess\n\
             Press [{}] to toggle numbers display\n\
             Press [{}] to edit password",
-            lowercase(KEY_SUBMIT),
-            lowercase(KEY_TOGGLE_NUMBER_OVERLAY),
-            lowercase(KEY_PLAYER_EDIT_PASSWORD),
+            KEY_SUBMIT.to_lowercase(),
+            KEY_TOGGLE_NUMBER_OVERLAY.to_lowercase(),
+            KEY_PLAYER_EDIT_PASSWORD.to_lowercase(),
         );
         bq::draw_text_left_aligned(
             controls_text,
@@ -570,8 +570,8 @@ impl MastermindGame {
         // Text - new game
         let new_game_text = format!(
             "Press [{}] to replay the same password.\nPress [{}] for a new password.",
-            lowercase(KEY_REPLAY_PASSWORD),
-            lowercase(KEY_NEW_PASSWORD),
+            KEY_REPLAY_PASSWORD.to_lowercase(),
+            KEY_NEW_PASSWORD.to_lowercase(),
         );
         let new_game_text_background = TextBackground {
             color: mq::Color::new(0.78, 0.78, 0.78, 0.8),
@@ -940,10 +940,6 @@ fn format_duration(duration: Duration) -> String {
     } else {
         format!("{minutes:02}:{seconds:02}.{hundredths:02.0}")
     }
-}
-
-fn lowercase(key_code: mq::KeyCode) -> String {
-    format!("{key_code:?}").to_lowercase()
 }
 
 /// Whether or not numbers are shown over colors in the history and working row.
