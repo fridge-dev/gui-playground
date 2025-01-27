@@ -3,6 +3,7 @@ use better_quad::bq::Timestamp;
 use better_quad::utils::color_animation::{
     SmoothColorAnimation, StepColorAnimation, TransitionLength,
 };
+use better_quad::utils::geometry;
 use better_quad::{bq, mq};
 use std::time::Duration;
 
@@ -70,7 +71,7 @@ impl VictoryMouseAnimations {
         // let's get weird
 
         let rotate_point_fn = |x: f32, y: f32| -> (f32, f32) {
-            Self::rotate_point(x, y, mouse_x, mouse_y, self.current_rotation_percent)
+            geometry::rotate_point(x, y, mouse_x, mouse_y, self.current_rotation_percent)
         };
 
         // North
@@ -85,32 +86,5 @@ impl VictoryMouseAnimations {
         // South
         let (south_x, south_y) = rotate_point_fn(mouse_x, mouse_y + self.cursor_offset);
         draw_cursor(south_x, south_y, self.south.current_color());
-    }
-
-    // ChatGPT: "rust math equation for rotating an (x,y) coordinate a certain percentage around a center point"
-    // https://chatgpt.com/c/67973eaf-c1cc-8000-9c7c-5201c97e1681 (private link)
-    fn rotate_point(
-        x: f32,
-        y: f32,
-        center_x: f32,
-        center_y: f32,
-        percentage: f32, // [0.0, 1.0)
-    ) -> (f32, f32) {
-        // Convert percentage to radians
-        let angle = percentage * std::f64::consts::TAU as f32;
-
-        // Translate point to origin
-        let translated_x = x - center_x;
-        let translated_y = y - center_y;
-
-        // Apply rotation matrix
-        let rotated_x = translated_x * angle.cos() - translated_y * angle.sin();
-        let rotated_y = translated_x * angle.sin() + translated_y * angle.cos();
-
-        // Translate point back
-        let result_x = rotated_x + center_x;
-        let result_y = rotated_y + center_y;
-
-        (result_x, result_y)
     }
 }
