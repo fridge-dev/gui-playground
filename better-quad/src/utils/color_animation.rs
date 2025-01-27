@@ -13,6 +13,24 @@ pub enum TransitionLength {
     NumFrames(u32),
 }
 
+impl TransitionLength {
+    fn to_num_frames(self) -> u32 {
+        let frames_per_transition = match self {
+            TransitionLength::TimedDuration(transition_duration) => {
+                (transition_duration.as_millis() as f32 / ASSUMED_FRAME_DURATION_MS) as u32
+            }
+            TransitionLength::NumFrames(num_frames) => num_frames,
+        };
+        assert!(
+            frames_per_transition > 1,
+            "Transition length too small: {:?}",
+            self
+        );
+
+        frames_per_transition
+    }
+}
+
 /// Animate between a sequence of colors by iterating through the sequence.
 pub struct StepColorAnimation {
     colors: InfiniteIterator<mq::Color>,
@@ -50,24 +68,6 @@ pub struct SmoothColorAnimation {
     frames_per_transition: u32,
     // current_frame is [0, frames_per_transition)
     current_frame: u32,
-}
-
-impl TransitionLength {
-    fn to_num_frames(self) -> u32 {
-        let frames_per_transition = match self {
-            TransitionLength::TimedDuration(transition_duration) => {
-                (transition_duration.as_millis() as f32 / ASSUMED_FRAME_DURATION_MS) as u32
-            }
-            TransitionLength::NumFrames(num_frames) => num_frames,
-        };
-        assert!(
-            frames_per_transition > 1,
-            "Transition length too small: {:?}",
-            self
-        );
-
-        frames_per_transition
-    }
 }
 
 struct ColorTransition {
