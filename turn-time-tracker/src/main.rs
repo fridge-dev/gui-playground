@@ -13,19 +13,19 @@ async fn main() {
 }
 
 fn example_turn_time_tracker() -> TurnTimeTracker {
-    let mut state = TurnTimeTracker::new();
-
     // TODO:2 replace with dynamic player/color selection
     // https://github.com/not-fl3/particles-editor/blob/master/src/main.rs#L13-L130
     // https://docs.rs/macroquad/latest/src/events/events.rs.html
-    state.add_player("Marceline", mq::YELLOW);
-    state.add_player("Bonnibel", mq::SKYBLUE);
-    state.add_player("Dorian", mq::PINK);
-    state.add_player("Leo", mq::GREEN);
-    state.add_player("Tiger", mq::DARKBLUE);
-    state.add_player("Russet", mq::ORANGE);
-    state.add_player("Pudding", mq::DARKBROWN);
-    state.add_player("Cranberry", mq::RED);
+    let players = vec![
+        ("Marceline", mq::YELLOW),
+        ("Bonnibel", mq::SKYBLUE),
+        ("Dorian", mq::PINK),
+        ("Leo", mq::GREEN),
+        ("Tiger", mq::DARKBLUE),
+        ("Russet", mq::ORANGE),
+        ("Pudding", mq::DARKBROWN),
+        ("Cranberry", mq::RED),
+    ];
 
-    state
+    TurnTimeTracker::with_players(players)
 }

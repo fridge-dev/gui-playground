@@ -1,56 +1,39 @@
+/// Infinite repeating iterator around a Vec<T>. Immutable.
+///
+/// # Panic
+///
+/// Panics if you try to create an empty infinite iterator.
 pub struct InfiniteIterator<T> {
     items: Vec<T>,
-    // Soft invariant: `current_index` is always a valid index into `items`.
-    // Invariant holds as long as items is non-empty.
+    // Invariant: `current_index` is always a valid index into `items`.
     current_index: usize,
 }
 
 impl<T> InfiniteIterator<T> {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self {
-            items: Vec::new(),
-            current_index: 0,
-        }
-    }
-
     fn from_vec(items: Vec<T>) -> Self {
+        assert!(
+            !items.is_empty(),
+            "Can't use InfiniteIterator with empty vec"
+        );
         Self {
             items,
             current_index: 0,
         }
     }
 
-    pub fn push(&mut self, item: T) {
-        self.items.push(item);
-    }
-
-    fn check_invariants(&self, method_name: &'static str) {
-        if self.items.is_empty() {
-            panic!("Can't call {method_name}() on empty InfiniteIterator");
-        }
-        if self.current_index >= self.items.len() {
-            panic!("InfiniteIterator-Invariant-Bug: called {method_name}() with current_index={} and len={}.", self.current_index, self.items.len());
-        }
-    }
-
     pub fn current(&self) -> &T {
-        self.check_invariants("current_mut");
         &self.items[self.current_index]
     }
 
     pub fn current_mut(&mut self) -> &mut T {
-        self.check_invariants("current_mut");
         &mut self.items[self.current_index]
     }
 
     pub fn advance(&mut self) {
-        self.check_invariants("advance");
         self.current_index = (self.current_index + 1) % self.items.len();
     }
 
     pub fn raw(&self) -> (&Vec<T>, usize) {
-        self.check_invariants("raw");
         (&self.items, self.current_index)
     }
 }

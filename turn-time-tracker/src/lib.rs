@@ -73,25 +73,19 @@ impl StatefulGui for TurnTimeTracker {
     }
 }
 
-impl Default for TurnTimeTracker {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl TurnTimeTracker {
-    pub fn new() -> Self {
+    /// Constructor to make tracker from static player list.
+    pub fn with_players(players: Vec<(&'static str, mq::Color)>) -> Self {
+        let players = players
+            .into_iter()
+            .map(|(player_name, player_color)| Player::new(player_name, player_color))
+            .collect::<Vec<_>>();
         Self {
-            players: InfiniteIterator::new(),
+            players: InfiniteIterator::from(players),
             timer: TimerState::Paused,
             time_display_mode: TimeDisplayMode::Shown,
             text_detail_mode: TextDetailMode::Concise,
         }
-    }
-
-    // TODO:3 remove `pub` and make it only accessible via UI interaction.
-    pub fn add_player(&mut self, display_name: impl Into<String>, display_color: mq::Color) {
-        self.players.push(Player::new(display_name, display_color));
     }
 
     fn evaluate_state(&mut self, now: Timestamp) {
