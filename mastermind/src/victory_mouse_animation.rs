@@ -1,5 +1,6 @@
 use crate::draw_cursor;
 use better_quad::bq::Timestamp;
+use better_quad::utils::animation_tickers::TimeBasedAnimationTicker;
 use better_quad::utils::color_animation::{
     SmoothColorAnimation, StepColorAnimation, TransitionLength,
 };
@@ -23,8 +24,7 @@ pub(crate) struct VictoryMouseAnimations {
     west: SmoothColorAnimation,
     east: SmoothColorAnimation,
     south: SmoothColorAnimation,
-    animation_start: Timestamp,
-    current_rotation_percent: f32, // [0, 1)
+    rotation: TimeBasedAnimationTicker,
     cursor_offset: f32,
 }
 
@@ -49,8 +49,7 @@ impl VictoryMouseAnimations {
                     .collect::<Vec<_>>(),
                 TRANSITION_LENGTH_SOUTH,
             ),
-            animation_start,
-            current_rotation_percent: 0.0,
+            rotation: TimeBasedAnimationTicker::new(animation_start, FULL_CIRCLE_ROTATION_DURATION),
             cursor_offset,
         }
     }
@@ -60,18 +59,20 @@ impl VictoryMouseAnimations {
         self.west.tick_frame();
         self.east.tick_frame();
         self.south.tick_frame();
-
-        let animation_total_run_time = now - self.animation_start;
-        let number_of_circles =
-            animation_total_run_time.as_secs_f32() / FULL_CIRCLE_ROTATION_DURATION.as_secs_f32();
-        self.current_rotation_percent = number_of_circles % 1.0;
+        self.rotation.tick(now);
     }
 
     pub(crate) fn draw(&self, mouse_x: f32, mouse_y: f32) {
         // let's get weird
 
         let rotate_point_fn = |x: f32, y: f32| -> (f32, f32) {
-            geometry::rotate_point(x, y, mouse_x, mouse_y, self.current_rotation_percent)
+            geometry::rotate_point(
+                x,
+                y,
+                mouse_x,
+                mouse_y,
+                self.rotation.current_animation_percent(),
+            )
         };
 
         // North

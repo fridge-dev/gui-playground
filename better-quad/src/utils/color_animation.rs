@@ -1,10 +1,10 @@
 use crate::mq;
+use crate::utils::animation_tickers::FrameBasedAnimationTicker;
 use crate::utils::infinite_iterator::InfiniteIterator;
 use std::time::Duration;
 
 /// Assume 120 FPS cuz YOLO
 const ASSUMED_FPS: f32 = 120.0;
-const ASSUMED_FRAME_DURATION_MS: f32 = 1000.0 / ASSUMED_FPS;
 
 /// How long a transition between 2 colors should be.
 #[derive(Debug, Copy, Clone)]
@@ -14,45 +14,36 @@ pub enum TransitionLength {
 }
 
 impl TransitionLength {
-    fn to_num_frames(self) -> u32 {
-        let frames_per_transition = match self {
-            TransitionLength::TimedDuration(transition_duration) => {
-                (transition_duration.as_millis() as f32 / ASSUMED_FRAME_DURATION_MS) as u32
+    fn into_animation_ticker(self) -> FrameBasedAnimationTicker {
+        match self {
+            TransitionLength::TimedDuration(duration) => {
+                FrameBasedAnimationTicker::for_duration(duration, ASSUMED_FPS)
             }
-            TransitionLength::NumFrames(num_frames) => num_frames,
-        };
-        assert!(
-            frames_per_transition > 1,
-            "Transition length too small: {:?}",
-            self
-        );
-
-        frames_per_transition
+            TransitionLength::NumFrames(frames) => {
+                FrameBasedAnimationTicker::for_num_frames(frames)
+            }
+        }
     }
 }
 
 /// Animate between a sequence of colors by iterating through the sequence.
 pub struct StepColorAnimation {
     colors: InfiniteIterator<mq::Color>,
-    frames_per_transition: u32,
-    // current_frame is [0, frames_per_transition)
-    current_frame: u32,
+    animation_ticker: FrameBasedAnimationTicker,
 }
 
 impl StepColorAnimation {
     pub fn new(colors: &[mq::Color], transition_length: TransitionLength) -> Self {
         Self {
             colors: InfiniteIterator::from(colors),
-            frames_per_transition: transition_length.to_num_frames(),
-            current_frame: 0,
+            animation_ticker: transition_length.into_animation_ticker(),
         }
     }
 
     pub fn tick_frame(&mut self) {
-        self.current_frame += 1;
+        self.animation_ticker.tick_frame();
 
-        if self.current_frame == self.frames_per_transition {
-            self.current_frame = 0;
+        if self.animation_ticker.current_frame() == 0 {
             self.colors.advance();
         }
     }
@@ -65,9 +56,7 @@ impl StepColorAnimation {
 /// Animate between a sequence of colors with smooth intermediate colors.
 pub struct SmoothColorAnimation {
     color_transitions: InfiniteIterator<ColorTransition>,
-    frames_per_transition: u32,
-    // current_frame is [0, frames_per_transition)
-    current_frame: u32,
+    animation_ticker: FrameBasedAnimationTicker,
 }
 
 struct ColorTransition {
@@ -88,24 +77,23 @@ impl SmoothColorAnimation {
 
         Self {
             color_transitions: InfiniteIterator::from(colors),
-            frames_per_transition: transition_length.to_num_frames(),
-            current_frame: 0,
+            animation_ticker: transition_length.into_animation_ticker(),
         }
     }
 
     // idk if "frames" are a good abstraction to use. Maybe time based would be smoother and
     // handle intermittent scheduling issues better. Just going to start with this for now.
+    // https://gafferongames.com/post/fix_your_timestep/
     pub fn tick_frame(&mut self) {
-        self.current_frame += 1;
+        self.animation_ticker.tick_frame();
 
-        if self.current_frame == self.frames_per_transition {
-            self.current_frame = 0;
+        if self.animation_ticker.current_frame() == 0 {
             self.color_transitions.advance();
         }
     }
 
     pub fn current_color(&self) -> mq::Color {
-        let transition_percent = self.current_frame as f32 / self.frames_per_transition as f32;
+        let transition_percent = self.animation_ticker.animation_percent();
 
         let transition = self.color_transitions.current();
         let start = transition.start;

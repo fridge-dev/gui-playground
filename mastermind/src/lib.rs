@@ -93,7 +93,8 @@ enum GameState {
     EditPassword,
     Victory {
         total_time: Duration,
-        mouse_animations: VictoryMouseAnimations,
+        // Put the big struct in a box
+        mouse_animations: Box<VictoryMouseAnimations>,
     },
     TooManyGuesses,
 }
@@ -263,11 +264,11 @@ impl MastermindGame {
                         if complete_row.num_correct_hits == NUM_SLOTS_PER_ROW {
                             self.state = GameState::Victory {
                                 total_time: now - *start_time,
-                                mouse_animations: VictoryMouseAnimations::new(
+                                mouse_animations: Box::new(VictoryMouseAnimations::new(
                                     COLOR_PALETTE.map(|c| c.as_mq()).to_vec(),
                                     now,
                                     VICTORY_MULTI_CURSOR_OFFSET,
-                                ),
+                                )),
                             };
                             return;
                         }
