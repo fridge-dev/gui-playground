@@ -52,7 +52,7 @@ const KEY_SIZE: f32 = 18.0;
 const KEY_RADIUS: f32 = KEY_SIZE / 2.0;
 const PEG_SIZE: f32 = 40.0;
 const PEG_RADIUS: f32 = PEG_SIZE / 2.0;
-const PEG_PADDING: f32 = 10.0;
+const PEG_OUTER_PADDING: f32 = 10.0;
 const SLOT_PEG_FONT_SIZE: u16 = 24;
 const WIN_TITLES: [&str; 8] = [
     "LUCKER DUCKER",
@@ -66,6 +66,39 @@ const WIN_TITLES: [&str; 8] = [
 ];
 const SEED_FONT_SIZE: u16 = 27;
 const SEED_TEXT_PADDING: f32 = 3.0;
+
+struct BoardSizeDerivedConsts {
+    row_width_guess: f32,
+    row_height: f32,
+    key_padding: f32,
+    row_width_key: f32,
+    board_height: f32,
+}
+
+impl BoardSizeDerivedConsts {
+    fn get() -> Self {
+        let row_width_guess =
+            SLOT_SIZE * SLOTS_PER_ROW_F32 + SLOT_PADDING * (SLOTS_PER_ROW_F32 + 1.0);
+        let row_height = SLOT_SIZE + SLOT_PADDING * 2.0;
+
+        // Derive key padding such that a single guess row has 2 rows of keys.
+        let key_padding = (row_height - KEY_SIZE * 2.0) / 3.0;
+        let num_keys_top_key_row = (SLOTS_PER_ROW_F32 / 2.0).ceil();
+        let row_width_key =
+            num_keys_top_key_row * KEY_SIZE + key_padding * (num_keys_top_key_row + 1.0);
+
+        let board_height =
+            row_height * (NUM_GUESSES as f32 + 1.0) + ROW_SEPARATOR_HEIGHT * NUM_GUESSES as f32;
+
+        Self {
+            row_width_guess,
+            row_height,
+            key_padding,
+            row_width_key,
+            board_height,
+        }
+    }
+}
 
 // Features to do:
 // - display controls
@@ -232,7 +265,7 @@ impl MastermindGame {
                 start_time,
             } => {
                 // Update mouse color if needed
-                if let Some(new_color) = Self::get_color_from_key_press() {
+                if let Some(new_color) = Self::get_mouse_color_update() {
                     self.mouse_color = new_color;
                 }
 
@@ -292,7 +325,7 @@ impl MastermindGame {
             }
             GameState::EditPassword => {
                 // Update mouse color if needed
-                if let Some(new_color) = Self::get_color_from_key_press() {
+                if let Some(new_color) = Self::get_mouse_color_update() {
                     self.mouse_color = new_color;
                 }
 
@@ -334,6 +367,14 @@ impl MastermindGame {
         }
     }
 
+    fn get_mouse_color_update() -> Option<Color> {
+        if let Some(color) = Self::get_color_from_key_press() {
+            return Some(color);
+        }
+
+        Self::get_color_from_mouse_click()
+    }
+
     fn get_color_from_key_press() -> Option<Color> {
         let num_keys = [
             mq::KeyCode::Key1,
@@ -361,25 +402,31 @@ impl MastermindGame {
         }
     }
 
+    fn get_color_from_mouse_click() -> Option<Color> {
+        if mq::is_mouse_button_pressed(mq::MouseButton::Left) {
+            let (mouse_x, mouse_y) = mq::mouse_position();
+            if let Some(peg_i) = pegs_ij::get_containing_i(mouse_x, mouse_y) {
+                return Some(COLOR_PALETTE[peg_i]);
+            }
+        }
+
+        None
+    }
+
     fn draw(&self) {
         mq::clear_background(mq::DARKBROWN);
         // Between BROWN and BEIGE
         let board_color = mq::Color::new(0.70, 0.60, 0.46, 1.0);
 
-        let row_width_guess =
-            SLOT_SIZE * SLOTS_PER_ROW_F32 + SLOT_PADDING * (SLOTS_PER_ROW_F32 + 1.0);
-        let row_height = SLOT_SIZE + SLOT_PADDING * 2.0;
-
-        // Derive key padding such that a single guess row has 2 rows of keys.
-        let key_padding = (row_height - KEY_SIZE * 2.0) / 3.0;
-        assert!(key_padding >= 1.0);
-        let num_keys_top_key_row = (SLOTS_PER_ROW_F32 / 2.0).ceil();
-        let row_width_key =
-            num_keys_top_key_row * KEY_SIZE + key_padding * (num_keys_top_key_row + 1.0);
+        let BoardSizeDerivedConsts {
+            row_width_guess,
+            row_height,
+            key_padding,
+            row_width_key,
+            board_height,
+        } = BoardSizeDerivedConsts::get();
 
         // Board
-        let board_height =
-            row_height * (NUM_GUESSES as f32 + 1.0) + ROW_SEPARATOR_HEIGHT * NUM_GUESSES as f32;
         mq::draw_rectangle(
             BOARD_OFFSET_X,
             BOARD_OFFSET_Y,
@@ -522,15 +569,9 @@ impl MastermindGame {
         }
 
         // Pegs
-        let intra_peg_x_padding = ((row_width_guess + row_width_key)
-            - (COLOR_PALETTE.len() as f32 * PEG_SIZE + PEG_PADDING * 2.0))
-            / (COLOR_PALETTE.len() as f32 - 1.0);
-        let pegs_y = BOARD_OFFSET_Y + board_height + PEG_PADDING + PEG_RADIUS;
+        let pegs_y = pegs_ij::compute_y_coordinate();
         for (i, color) in COLOR_PALETTE.iter().enumerate() {
-            let x = BOARD_OFFSET_X
-                + (intra_peg_x_padding + PEG_RADIUS * 2.0) * i as f32
-                + PEG_PADDING
-                + PEG_RADIUS;
+            let x = pegs_ij::compute_x_coordinate(i);
             bq::draw_circle(x, pegs_y, PEG_RADIUS, color.as_mq());
             bq::draw_text_left_aligned(
                 format!("{}", i + 1),
@@ -559,7 +600,7 @@ impl MastermindGame {
             mq::BLACK,
             TextAnchorPoint::TopLeft {
                 x: BOARD_OFFSET_X,
-                y: pegs_y + PEG_RADIUS + PEG_PADDING + 5.0,
+                y: pegs_y + PEG_RADIUS + PEG_OUTER_PADDING + 5.0,
             },
             Some(TextBackground {
                 color: mq::Color::new(1.0, 1.0, 1.0, 0.7),
@@ -804,6 +845,68 @@ mod guess_circles_ij {
         }
 
         Some((i, j))
+    }
+}
+
+// I need to come up with a better re-usable method for drawing shapes and checking if mouse is within
+// the shape boundaries. I am not loving this, but it works for now.
+mod pegs_ij {
+    use crate::{
+        BoardSizeDerivedConsts, BOARD_OFFSET_X, BOARD_OFFSET_Y, COLOR_PALETTE, PEG_OUTER_PADDING,
+        PEG_RADIUS, PEG_SIZE,
+    };
+
+    fn intra_peg_x_padding() -> f32 {
+        let BoardSizeDerivedConsts {
+            row_width_guess,
+            row_width_key,
+            ..
+        } = BoardSizeDerivedConsts::get();
+
+        // Question for future self: Do the local vars help readability?
+        let board_width = row_width_guess + row_width_key;
+        let peg_outer_padding = PEG_OUTER_PADDING * 2.0;
+        let peg_total_width = COLOR_PALETTE.len() as f32 * PEG_SIZE;
+        let num_intra_peg_spaces = COLOR_PALETTE.len() as f32 - 1.0;
+
+        (board_width - (peg_outer_padding + peg_total_width)) / num_intra_peg_spaces
+    }
+
+    pub(crate) fn compute_x_coordinate(i: usize) -> f32 {
+        // explosive way to make sure I don't mis-use this function
+        assert!(i < COLOR_PALETTE.len());
+
+        BOARD_OFFSET_X
+            + PEG_OUTER_PADDING
+            + (PEG_RADIUS * 2.0 + intra_peg_x_padding()) * i as f32
+            + PEG_RADIUS
+    }
+
+    pub(crate) fn compute_y_coordinate() -> f32 {
+        let derived_consts = BoardSizeDerivedConsts::get();
+        BOARD_OFFSET_Y + derived_consts.board_height + PEG_OUTER_PADDING + PEG_RADIUS
+    }
+
+    pub(crate) fn get_containing_i(mut x: f32, y: f32) -> Option<usize> {
+        x -= BOARD_OFFSET_X + PEG_OUTER_PADDING;
+        let mut i = 0;
+        loop {
+            if x < 0.0 || i >= COLOR_PALETTE.len() {
+                return None;
+            }
+            if x <= (PEG_RADIUS * 2.0) {
+                break;
+            }
+            i += 1;
+            x -= (PEG_RADIUS * 2.0) + intra_peg_x_padding();
+        }
+
+        let peg_y = compute_y_coordinate();
+        if y < peg_y - PEG_RADIUS || y > peg_y + PEG_RADIUS {
+            return None;
+        }
+
+        Some(i)
     }
 }
 
