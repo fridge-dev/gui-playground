@@ -1,13 +1,11 @@
 use crate::mq;
 
 const FONT_SCALE: f32 = 1.0;
-const LINE_DISTANCE_FACTOR: f32 = 1.0;
 
 /// Draws block of text at an anchor point.
-///
-/// Handles multiline text by **left-aligning**. In the future, I may add right-aligned, center-aligned.
-pub fn draw_text_left_aligned(
+pub fn draw_text(
     text: impl AsRef<str>,
+    alignment: TextAlignment,
     font: Option<&mq::Font>,
     font_size: u16,
     text_color: mq::Color,
@@ -28,19 +26,31 @@ pub fn draw_text_left_aligned(
         text_container.draw_rect(background.color);
     }
 
-    let text_x = text_container.rect_x + text_container.text_padding_x;
-    // mq is weird here. y is the bottom left coord of the _first_ line.
-    let text_y = text_container.rect_y
+    let text_x_offset = text_container.rect_x + text_container.text_padding_x;
+
+    // Starting with offset_y then incrementing by font_size is an artifact of refactoring mq::draw_multiline_text_ex().
+    let mut text_y = text_container.rect_y
         + text_container.text_padding_y
         + multiline_text_dimensions.text_line_dimensions[0].offset_y;
-    mq::draw_multiline_text(
-        text,
-        text_x,
-        text_y,
-        font_size as f32,
-        Some(LINE_DISTANCE_FACTOR),
-        text_color,
-    );
+
+    for (i, line) in text.lines().enumerate() {
+        let text_x_diff = match alignment {
+            TextAlignment::Left => 0.0,
+            TextAlignment::Center => {
+                (multiline_text_dimensions.max_width
+                    - multiline_text_dimensions.text_line_dimensions[i].width)
+                    / 2.0
+            }
+            TextAlignment::Right => {
+                multiline_text_dimensions.max_width
+                    - multiline_text_dimensions.text_line_dimensions[i].width
+            }
+        };
+
+        let text_x = text_x_offset + text_x_diff;
+        mq::draw_text(line, text_x, text_y, font_size as f32, text_color);
+        text_y += font_size as f32;
+    }
 
     text_container
 }
@@ -80,6 +90,13 @@ fn measure_multiline_text(
         max_width,
         total_height,
     }
+}
+
+/// How text is aligned if there are multiple lines. If it's a single line, it doesn't matter.
+pub enum TextAlignment {
+    Left,
+    Center,
+    Right,
 }
 
 /// Imagine you have a text box. This describes which part of the text box is positioned at the

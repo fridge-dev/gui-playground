@@ -1,6 +1,6 @@
 use crate::password::{Password, PasswordSource};
 use crate::victory_mouse_animation::VictoryMouseAnimations;
-use better_quad::bq::{BetterKeyCode, TextAnchorPoint};
+use better_quad::bq::{BetterKeyCode, TextAlignment, TextAnchorPoint};
 use better_quad::{
     bq::{self, FpsCounter, TextBackground, Timestamp},
     StatefulGui,
@@ -39,7 +39,6 @@ const NUM_GUESSES: usize = 8;
 // Draw consts
 const CURSOR_SIZE: f32 = 30.0;
 const CURSOR_RADIUS: f32 = CURSOR_SIZE / 2.0;
-const VICTORY_MULTI_CURSOR_OFFSET: f32 = CURSOR_SIZE;
 const SLOTS_PER_ROW_F32: f32 = NUM_SLOTS_PER_ROW as f32;
 const BOARD_OFFSET_X: f32 = 20.0;
 const BOARD_OFFSET_Y: f32 = 20.0;
@@ -66,6 +65,9 @@ const WIN_TITLES: [&str; 8] = [
 ];
 const SEED_FONT_SIZE: u16 = 27;
 const SEED_TEXT_PADDING: f32 = 3.0;
+const VICTORY_MULTI_CURSOR_OFFSET: f32 = CURSOR_SIZE;
+const VICTORY_CURSOR_TITLE_FONT_SIZE: u16 = 50;
+const VICTORY_CURSOR_TITLE_OFFSET: f32 = 25.0;
 
 struct BoardSizeDerivedConsts {
     row_width_guess: f32,
@@ -307,6 +309,9 @@ impl MastermindGame {
                                     COLOR_PALETTE.map(|c| c.as_mq()).to_vec(),
                                     now,
                                     VICTORY_MULTI_CURSOR_OFFSET,
+                                    win_title(&self.history).to_string(),
+                                    VICTORY_CURSOR_TITLE_FONT_SIZE,
+                                    VICTORY_CURSOR_TITLE_OFFSET,
                                 )),
                             };
                             return;
@@ -605,8 +610,9 @@ impl MastermindGame {
         for (i, color) in COLOR_PALETTE.iter().enumerate() {
             let x = pegs_ij::compute_x_coordinate(i);
             bq::draw_circle(x, pegs_y, PEG_RADIUS, color.as_mq());
-            bq::draw_text_left_aligned(
+            bq::draw_text(
                 format!("{}", i + 1),
+                TextAlignment::Left,
                 None,
                 SLOT_PEG_FONT_SIZE,
                 mq::BLACK,
@@ -625,8 +631,9 @@ impl MastermindGame {
             KEY_TOGGLE_NUMBER_OVERLAY.to_lowercase(),
             KEY_PLAYER_EDIT_PASSWORD.to_lowercase(),
         );
-        bq::draw_text_left_aligned(
+        bq::draw_text(
             controls_text,
+            TextAlignment::Left,
             None,
             25,
             mq::BLACK,
@@ -655,16 +662,15 @@ impl MastermindGame {
         match &self.state {
             GameState::InProgress { .. } | GameState::EditPassword { .. } => {}
             GameState::Victory { total_time, .. } => {
-                let win_title = WIN_TITLES
-                    .get(self.history.len() - 1)
-                    .unwrap_or(WIN_TITLES.last().unwrap());
-                bq::draw_text_left_aligned(
+                let win_title = win_title(&self.history);
+                bq::draw_text(
                     format!(
                         "You won in {} guesses! You are a {}!\nTime: {}\n\n{new_game_text}",
                         self.history.len(),
                         win_title,
                         format_duration(*total_time)
                     ),
+                    TextAlignment::Left,
                     None,
                     25,
                     mq::DARKGREEN,
@@ -673,8 +679,9 @@ impl MastermindGame {
                 );
             }
             GameState::TooManyGuesses => {
-                bq::draw_text_left_aligned(
+                bq::draw_text(
                     format!("You lose lmao\n\n{new_game_text}"),
+                    TextAlignment::Left,
                     None,
                     25,
                     mq::RED,
@@ -692,8 +699,9 @@ impl MastermindGame {
             PasswordSource::Random { seed } => format!("Seed: {seed}"),
             PasswordSource::Player => "Seed: N/A".to_string(),
         };
-        bq::draw_text_left_aligned(
+        bq::draw_text(
             seed_text,
+            TextAlignment::Left,
             None,
             SEED_FONT_SIZE,
             mq::WHITE,
@@ -752,6 +760,12 @@ fn draw_cursor(x: f32, y: f32, color: mq::Color) {
     bq::draw_circle_outline(x, y, CURSOR_RADIUS, 1.0, mq::BLACK);
 }
 
+fn win_title(history: &[CompleteRow]) -> &'static str {
+    WIN_TITLES
+        .get(history.len() - 1)
+        .unwrap_or(WIN_TITLES.last().unwrap())
+}
+
 /// Helper to manage grid of circles.
 /// (x,y) = plain old pixel coordinates on display
 /// (i,j) = coordinates of circles.
@@ -786,6 +800,7 @@ mod guess_circles_ij {
         SLOT_SIZE,
     };
     use better_quad::bq;
+    use better_quad::bq::TextAlignment;
     use macroquad::prelude as mq;
 
     const CIRCLE_OUTLINE_THICKNESS: f32 = 1.0;
@@ -838,8 +853,9 @@ mod guess_circles_ij {
     }
 
     fn draw_text_overlay(x: f32, y: f32, color: mq::Color, text: impl AsRef<str>) {
-        bq::draw_text_left_aligned(
+        bq::draw_text(
             text,
+            TextAlignment::Left,
             None,
             SLOT_PEG_FONT_SIZE,
             color,

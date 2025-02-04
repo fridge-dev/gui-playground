@@ -1,4 +1,4 @@
-use crate::bq::{TextAnchorPoint, TextContainer};
+use crate::bq::{TextAlignment, TextAnchorPoint, TextContainer};
 use crate::bq_text::TextBackground;
 use crate::bq_timestamp::Timestamp;
 use crate::{bq_text, mq};
@@ -59,8 +59,9 @@ pub fn draw_fps_text_bottom_right(fps_counter: &FpsCounter) -> TextContainer {
 
     let fps_text = format!("{:>3} FPS", fps_counter.fps());
 
-    bq_text::draw_text_left_aligned(
+    bq_text::draw_text(
         fps_text,
+        TextAlignment::Left,
         None,
         FPS_FONT_SIZE,
         mq::BLACK,

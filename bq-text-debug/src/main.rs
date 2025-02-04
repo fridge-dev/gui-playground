@@ -1,4 +1,4 @@
-use better_quad::bq::TextAnchorPoint;
+use better_quad::bq::{TextAlignment, TextAnchorPoint};
 use better_quad::{
     bq::{self, TextBackground, Timestamp},
     mq, StatefulGui,
@@ -39,8 +39,9 @@ fn draw_mouse_coordinates() {
     let (mouse_x, mouse_y) = mq::mouse_position();
     let mouse_x = mouse_x as u32;
     let mouse_y = mouse_y as u32;
-    bq::draw_text_left_aligned(
+    bq::draw_text(
         format!("({mouse_x:3}, {mouse_y:3})"),
+        TextAlignment::Left,
         None,
         25,
         mq::BLACK,
@@ -54,8 +55,9 @@ fn draw_mouse_coordinates() {
 }
 
 fn draw_text_examples() {
-    bq::draw_text_left_aligned(
+    bq::draw_text(
         "bbbb",
+        TextAlignment::Left,
         None,
         30,
         mq::BLACK,
@@ -68,8 +70,9 @@ fn draw_text_examples() {
     );
     bq::draw_circle(100.0, 100.0, 3.0, mq::RED);
 
-    bq::draw_text_left_aligned(
+    bq::draw_text(
         "aaa\n\nyyy",
+        TextAlignment::Left,
         None,
         30,
         mq::BLACK,
@@ -84,8 +87,9 @@ fn draw_text_examples() {
 
     // Still something funky going on with the placement of first line's y, but whatever. Good enough
     // for now.
-    bq::draw_text_left_aligned(
+    bq::draw_text(
         "AAA\n\nyyy",
+        TextAlignment::Left,
         None,
         30,
         mq::BLACK,

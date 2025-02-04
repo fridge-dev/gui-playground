@@ -1,3 +1,4 @@
+use better_quad::bq::TextAlignment;
 use better_quad::{bq, mq};
 use better_quad::{
     bq::{FpsCounter, Timestamp},
@@ -286,8 +287,9 @@ fn draw_game(state: &SnakeGameState) {
     } else {
         // Draw game-over screen.
         mq::clear_background(mq::WHITE);
-        bq::draw_text_left_aligned(
+        bq::draw_text(
             "Game Over. Press [enter] to play again.",
+            TextAlignment::Left,
             None,
             30,
             mq::DARKGRAY,
