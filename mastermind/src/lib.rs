@@ -122,8 +122,11 @@ enum GameState {
     InProgress {
         start_time: Timestamp,
         working_row: [Option<Color>; NUM_SLOTS_PER_ROW],
+        mouse_click_release_behavior: MouseClickReleaseBehavior,
     },
-    EditPassword,
+    EditPassword {
+        mouse_click_release_behavior: MouseClickReleaseBehavior,
+    },
     Victory {
         total_time: Duration,
         // Put the big struct in a box
@@ -183,6 +186,7 @@ impl GameState {
         Self::InProgress {
             start_time: Timestamp::now(),
             working_row: [None; NUM_SLOTS_PER_ROW],
+            mouse_click_release_behavior: MouseClickReleaseBehavior::None,
         }
     }
 }
@@ -263,14 +267,16 @@ impl MastermindGame {
             GameState::InProgress {
                 working_row,
                 start_time,
+                ref mut mouse_click_release_behavior,
             } => {
                 // Update mouse color if needed
-                if let Some(new_color) = Self::get_mouse_color_update() {
+                if let Some((new_color, new_release_behavior)) = Self::get_mouse_color_update() {
                     self.mouse_color = new_color;
+                    *mouse_click_release_behavior = new_release_behavior;
                 }
 
                 // Set working row's color if needed
-                if mq::is_mouse_button_pressed(mq::MouseButton::Left) {
+                if Self::should_set_color(mouse_click_release_behavior) {
                     let (mouse_x, mouse_y) = mq::mouse_position();
                     if let Some((i, j)) = guess_circles_ij::get_containing_ij(mouse_x, mouse_y) {
                         if j == NUM_GUESSES - self.history.len() {
@@ -319,18 +325,23 @@ impl MastermindGame {
                 if mq::is_key_pressed(KEY_PLAYER_EDIT_PASSWORD) {
                     let working_row_empty = !working_row.iter().any(|c| c.is_some());
                     if self.history.is_empty() && working_row_empty {
-                        self.state = GameState::EditPassword;
+                        self.state = GameState::EditPassword {
+                            mouse_click_release_behavior: MouseClickReleaseBehavior::None,
+                        };
                     }
                 }
             }
-            GameState::EditPassword => {
+            GameState::EditPassword {
+                ref mut mouse_click_release_behavior,
+            } => {
                 // Update mouse color if needed
-                if let Some(new_color) = Self::get_mouse_color_update() {
+                if let Some((new_color, new_release_behavior)) = Self::get_mouse_color_update() {
                     self.mouse_color = new_color;
+                    *mouse_click_release_behavior = new_release_behavior;
                 }
 
                 // Set password color if needed
-                if mq::is_mouse_button_pressed(mq::MouseButton::Left) {
+                if Self::should_set_color(mouse_click_release_behavior) {
                     let (mouse_x, mouse_y) = mq::mouse_position();
                     if let Some((i, j)) = guess_circles_ij::get_containing_ij(mouse_x, mouse_y) {
                         if j == 0 {
@@ -367,12 +378,16 @@ impl MastermindGame {
         }
     }
 
-    fn get_mouse_color_update() -> Option<Color> {
+    fn get_mouse_color_update() -> Option<(Color, MouseClickReleaseBehavior)> {
         if let Some(color) = Self::get_color_from_key_press() {
-            return Some(color);
+            return Some((color, MouseClickReleaseBehavior::None));
         }
 
-        Self::get_color_from_mouse_click()
+        if let Some(color) = Self::get_color_from_mouse_click() {
+            return Some((color, MouseClickReleaseBehavior::FillColor));
+        }
+
+        None
     }
 
     fn get_color_from_key_press() -> Option<Color> {
@@ -411,6 +426,21 @@ impl MastermindGame {
         }
 
         None
+    }
+
+    fn should_set_color(mouse_click_release_behavior: &mut MouseClickReleaseBehavior) -> bool {
+        // Check if mouse was released after a click and drag from a peg.
+        if matches!(
+            mouse_click_release_behavior,
+            MouseClickReleaseBehavior::FillColor
+        ) && mq::is_mouse_button_released(mq::MouseButton::Left)
+        {
+            *mouse_click_release_behavior = MouseClickReleaseBehavior::None;
+            return true;
+        }
+
+        // Check if mouse is clicked.
+        mq::is_mouse_button_pressed(mq::MouseButton::Left)
     }
 
     fn draw(&self) {
@@ -459,7 +489,7 @@ impl MastermindGame {
         // Password - overwrite space already drawn with Board
         let password_rectangle_color = match &self.state {
             GameState::InProgress { .. } => mq::BLACK,
-            GameState::EditPassword => board_color,
+            GameState::EditPassword { .. } => board_color,
             GameState::Victory { .. } => mq::GREEN,
             GameState::TooManyGuesses => mq::RED,
         };
@@ -478,7 +508,9 @@ impl MastermindGame {
                     guess_circles_ij::draw_password_text_overlay(i, 0);
                 }
             }
-            GameState::EditPassword | GameState::Victory { .. } | GameState::TooManyGuesses => {
+            GameState::EditPassword { .. }
+            | GameState::Victory { .. }
+            | GameState::TooManyGuesses => {
                 for (i, color) in self.password.password().iter().enumerate() {
                     guess_circles_ij::draw(i, 0, *color, self.number_overlay);
                 }
@@ -621,7 +653,7 @@ impl MastermindGame {
             y_padding: 2.0,
         };
         match &self.state {
-            GameState::InProgress { .. } | GameState::EditPassword => {}
+            GameState::InProgress { .. } | GameState::EditPassword { .. } => {}
             GameState::Victory { total_time, .. } => {
                 let win_title = WIN_TITLES
                     .get(self.history.len() - 1)
@@ -685,7 +717,7 @@ impl MastermindGame {
 
             match &self.state {
                 GameState::InProgress { .. }
-                | GameState::EditPassword
+                | GameState::EditPassword { .. }
                 | GameState::TooManyGuesses => {
                     draw_cursor(mouse_x, mouse_y, self.mouse_color.as_mq());
                 }
@@ -1051,6 +1083,13 @@ fn format_duration(duration: Duration) -> String {
 pub(crate) enum NumberOverlay {
     On,
     Off,
+}
+
+/// If mouse is click and dragged from pegs.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub(crate) enum MouseClickReleaseBehavior {
+    None,
+    FillColor,
 }
 
 #[cfg(test)]
