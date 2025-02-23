@@ -2,4 +2,4 @@
 
 set -euxo pipefail
 
-basic-http-server web &
+basic-http-server docs &
