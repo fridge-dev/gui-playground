@@ -54,15 +54,27 @@ const PEG_RADIUS: f32 = PEG_SIZE / 2.0;
 const PEG_OUTER_PADDING: f32 = 10.0;
 const SLOT_PEG_FONT_SIZE: u16 = 24;
 const WIN_TITLES: [&str; 8] = [
-    "LUCKER DUCKER",
+    "ABSOLUTE LUCKEREST DUCKER",
     "lucker ducker",
-    "goated mastermind",
+    "goated",
     "mastermind",
     "genius",
-    "vic royale",
+    "mad lad",
     "silly goose",
     "dangerous warbler",
 ];
+const END_GAME_FONT_SIZE: u16 = 25;
+const HOW_TO_PLAY_OFFSET_X: f32 = BOARD_OFFSET_X;
+const HOW_TO_PLAY_OFFSET_Y: f32 = BOARD_OFFSET_Y;
+const HOW_TO_PLAY_FONT_SIZE: u16 = 25;
+const HOW_TO_PLAY_TEXT: &str = "Try to guess the secret code!
+
+Select 4 colored pegs to make a guess.
+Duplicate colors are allowed.
+
+The small pegs on the right side give you feedback on your guess.
+White peg = A correct color in the correct position.
+Grey peg = A correct color in the incorrect position.";
 const SEED_FONT_SIZE: u16 = 27;
 const SEED_TEXT_PADDING: f32 = 3.0;
 const VICTORY_MULTI_CURSOR_OFFSET: f32 = CURSOR_SIZE;
@@ -654,13 +666,26 @@ impl MastermindGame {
             KEY_REPLAY_PASSWORD.to_lowercase(),
             KEY_NEW_PASSWORD.to_lowercase(),
         );
-        let new_game_text_background = TextBackground {
+        let info_text_background = TextBackground {
             color: mq::Color::new(0.78, 0.78, 0.78, 0.8),
-            x_padding: 2.0,
-            y_padding: 2.0,
+            x_padding: 10.0,
+            y_padding: 10.0,
         };
         match &self.state {
-            GameState::InProgress { .. } | GameState::EditPassword { .. } => {}
+            GameState::InProgress { .. } | GameState::EditPassword { .. } => {
+                bq::draw_text(
+                    HOW_TO_PLAY_TEXT,
+                    TextAlignment::Left,
+                    None,
+                    HOW_TO_PLAY_FONT_SIZE,
+                    mq::BLACK,
+                    TextAnchorPoint::TopLeft {
+                        x: BOARD_OFFSET_X + row_width_guess + row_width_key + HOW_TO_PLAY_OFFSET_X,
+                        y: HOW_TO_PLAY_OFFSET_Y,
+                    },
+                    Some(info_text_background),
+                );
+            }
             GameState::Victory { total_time, .. } => {
                 let win_title = win_title(&self.history);
                 bq::draw_text(
@@ -672,10 +697,10 @@ impl MastermindGame {
                     ),
                     TextAlignment::Left,
                     None,
-                    25,
+                    END_GAME_FONT_SIZE,
                     mq::DARKGREEN,
                     TextAnchorPoint::window_centered(),
-                    Some(new_game_text_background),
+                    Some(info_text_background),
                 );
             }
             GameState::TooManyGuesses => {
@@ -683,10 +708,10 @@ impl MastermindGame {
                     format!("You lose lmao\n\n{new_game_text}"),
                     TextAlignment::Left,
                     None,
-                    25,
+                    END_GAME_FONT_SIZE,
                     mq::RED,
                     TextAnchorPoint::window_centered(),
-                    Some(new_game_text_background),
+                    Some(info_text_background),
                 );
             }
         }
