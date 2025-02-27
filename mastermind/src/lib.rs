@@ -53,16 +53,6 @@ const PEG_SIZE: f32 = 40.0;
 const PEG_RADIUS: f32 = PEG_SIZE / 2.0;
 const PEG_OUTER_PADDING: f32 = 10.0;
 const SLOT_PEG_FONT_SIZE: u16 = 24;
-const WIN_TITLES: [&str; 8] = [
-    "ABSOLUTE LUCKEREST DUCKER",
-    "lucker ducker",
-    "goated",
-    "mastermind",
-    "genius",
-    "mad lad",
-    "silly goose",
-    "dangerous warbler",
-];
 const END_GAME_FONT_SIZE: u16 = 25;
 const HOW_TO_PLAY_OFFSET_X: f32 = BOARD_OFFSET_X;
 const HOW_TO_PLAY_OFFSET_Y: f32 = BOARD_OFFSET_Y;
@@ -321,7 +311,7 @@ impl MastermindGame {
                                     COLOR_PALETTE.map(|c| c.as_mq()).to_vec(),
                                     now,
                                     VICTORY_MULTI_CURSOR_OFFSET,
-                                    win_title(&self.history).to_string(),
+                                    win_title::get(&self.history).title.to_string(),
                                     VICTORY_CURSOR_TITLE_FONT_SIZE,
                                     VICTORY_CURSOR_TITLE_OFFSET,
                                 )),
@@ -687,12 +677,17 @@ impl MastermindGame {
                 );
             }
             GameState::Victory { total_time, .. } => {
-                let win_title = win_title(&self.history);
+                let win_title = win_title::get(&self.history);
+                let win_title_article = match win_title.article {
+                    Some(s) => format!("{s} "),
+                    None => "".to_string(),
+                };
                 bq::draw_text(
                     format!(
-                        "You won in {} guesses! You are a {}!\nTime: {}\n\n{new_game_text}",
+                        "You won in {} guesses! You are {}{}!\nTime: {}\n\n{new_game_text}",
                         self.history.len(),
-                        win_title,
+                        win_title_article,
+                        win_title.title,
                         format_duration(*total_time)
                     ),
                     TextAlignment::Left,
@@ -785,10 +780,32 @@ fn draw_cursor(x: f32, y: f32, color: mq::Color) {
     bq::draw_circle_outline(x, y, CURSOR_RADIUS, 1.0, mq::BLACK);
 }
 
-fn win_title(history: &[CompleteRow]) -> &'static str {
-    WIN_TITLES
-        .get(history.len() - 1)
-        .unwrap_or(WIN_TITLES.last().unwrap())
+mod win_title {
+    use crate::CompleteRow;
+
+    /// (article, title)
+    const WIN_TITLES: [(Option<&str>, &str); 8] = [
+        (Some("an"), "ABSOLUTE LUCKEREST DUCKER"),
+        (Some("a"), "lucker ducker"),
+        (None, "goated"),
+        (Some("a"), "mastermind"),
+        (Some("a"), "genius"),
+        (Some("a"), "mad lad"),
+        (Some("a"), "silly goose"),
+        (Some("a"), "dangerous warbler"),
+    ];
+
+    pub(crate) struct WinTitle {
+        pub(crate) article: Option<&'static str>,
+        pub(crate) title: &'static str,
+    }
+
+    pub(crate) fn get(history: &[CompleteRow]) -> WinTitle {
+        let (article, title) = *WIN_TITLES
+            .get(history.len() - 1)
+            .unwrap_or(WIN_TITLES.last().unwrap());
+        WinTitle { article, title }
+    }
 }
 
 /// Helper to manage grid of circles.
