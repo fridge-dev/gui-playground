@@ -105,10 +105,8 @@ impl BoardSizeDerivedConsts {
 }
 
 // Features to do:
-// - display controls
 // - dynamically variable game params (num colors, num slots, num guesses)
 // - pvp (https://docs.rs/gloo-net/latest/gloo_net )
-// - display rules
 // - add ability to seed run
 pub struct MastermindGame {
     state: GameState,

@@ -2,6 +2,8 @@
 
 Implementation of https://en.wikipedia.org/wiki/Mastermind_(board_game) where you try to guess a secret password consisting of 4 colored pegs.
 
+Play at https://fridge-dev.github.io/gui-playground/mastermind.html
+
 # Usage
 
 The main way to play is to try to crack randomly generated codes. You can also kind of play a 2-player mode where player A enters the password and player B tries to guess it, then player B enters the password and player A tries to guess it.
