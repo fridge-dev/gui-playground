@@ -67,7 +67,7 @@ on your guess.
 - White peg = A correct color in the correct position.
 - Grey peg = A correct color in the incorrect position.
 The order of the feedback pegs does NOT correspond
-to specific pegs from your guess";
+to specific pegs from your guess.";
 const SEED_FONT_SIZE: u16 = 27;
 const SEED_TEXT_PADDING: f32 = 3.0;
 const VICTORY_MULTI_CURSOR_OFFSET: f32 = CURSOR_SIZE;
