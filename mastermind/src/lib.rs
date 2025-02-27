@@ -786,14 +786,14 @@ mod win_title {
 
     /// (article, title)
     const WIN_TITLES: [(Option<&str>, &str); 8] = [
-        (Some("an"), "ABSOLUTE LUCKEREST DUCKER"),
-        (Some("a"), "lucker ducker"),
+        (Some("THE"), "ABSOLUTE LUCKIEST DUCKER"),
+        (Some("crazy! That was crazy, you're a"), "lucky ducker"),
         (None, "goated"),
         (Some("a"), "mastermind"),
         (Some("a"), "genius"),
         (Some("a"), "mad lad"),
+        (Some("a"), "wild warbler"),
         (Some("a"), "silly goose"),
-        (Some("a"), "dangerous warbler"),
     ];
 
     pub(crate) struct WinTitle {
