@@ -72,7 +72,7 @@ const SEED_FONT_SIZE: u16 = 27;
 const SEED_TEXT_PADDING: f32 = 3.0;
 const VICTORY_MULTI_CURSOR_OFFSET: f32 = CURSOR_SIZE;
 const VICTORY_CURSOR_TITLE_FONT_SIZE: u16 = 50;
-const VICTORY_CURSOR_TITLE_OFFSET: f32 = 25.0;
+const VICTORY_CURSOR_TITLE_OFFSET: f32 = 12.0;
 
 struct BoardSizeDerivedConsts {
     row_width_guess: f32,
