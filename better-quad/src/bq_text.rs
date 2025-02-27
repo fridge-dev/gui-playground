@@ -10,10 +10,11 @@ pub fn draw_text(
     font_size: u16,
     text_color: mq::Color,
     text_anchor_point: TextAnchorPoint,
+    // Note: Background concept of "padding" could be decoupled from color, if padding is useful without color.
     opt_background_rectangle: Option<TextBackground>,
 ) -> TextContainer {
     let text = text.as_ref();
-    let multiline_text_dimensions = measure_multiline_text(text, font, font_size);
+    let multiline_text_dimensions = MultilineTextDimensions::measure(text, font, font_size);
     let text_container = TextContainer::compute(
         text_anchor_point,
         &multiline_text_dimensions,
@@ -21,14 +22,13 @@ pub fn draw_text(
     );
 
     if let Some(background) = opt_background_rectangle {
-        // Note: Background concept of "padding" could be decoupled from color, if padding is useful
-        // without color.
         text_container.draw_rect(background.color);
     }
 
     let text_x_offset = text_container.rect_x + text_container.text_padding_x;
 
-    // Starting with offset_y then incrementing by font_size is an artifact of refactoring mq::draw_multiline_text_ex().
+    // Starting with offset_y (rather than font_size) then incrementing by font_size is taken from
+    // mq::draw_multiline_text_ex().
     let mut text_y = text_container.rect_y
         + text_container.text_padding_y
         + multiline_text_dimensions.text_line_dimensions[0].offset_y;
@@ -53,43 +53,6 @@ pub fn draw_text(
     }
 
     text_container
-}
-
-struct MultilineTextDimensions {
-    text_line_dimensions: Vec<mq::TextDimensions>,
-    max_width: f32,
-    total_height: f32,
-}
-
-/// Returns (max_width, total_height) of rect to contain text
-fn measure_multiline_text(
-    text: &str,
-    font: Option<&mq::Font>,
-    font_size: u16,
-) -> MultilineTextDimensions {
-    let text_line_dimensions = text
-        .lines()
-        .map(|line| mq::measure_text(line, font, font_size, FONT_SCALE))
-        .collect::<Vec<_>>();
-
-    let mut max_width = 0f32;
-    for text_dimensions in &text_line_dimensions {
-        max_width = max_width.max(text_dimensions.width);
-    }
-
-    let mut height_of_last_line = text_line_dimensions.last().unwrap().height;
-    if height_of_last_line <= 0.0 {
-        // Hack to fix empty string last line being ignored
-        height_of_last_line = font_size as f32;
-    }
-    let total_height =
-        (text_line_dimensions.len() - 1) as f32 * font_size as f32 + height_of_last_line;
-
-    MultilineTextDimensions {
-        text_line_dimensions,
-        max_width,
-        total_height,
-    }
 }
 
 /// How text is aligned if there are multiple lines. If it's a single line, it doesn't matter.
@@ -148,9 +111,43 @@ pub struct TextBackground {
     pub y_padding: f32,
 }
 
+struct MultilineTextDimensions {
+    text_line_dimensions: Vec<mq::TextDimensions>,
+    max_width: f32,
+    total_height: f32,
+}
+
+impl MultilineTextDimensions {
+    fn measure(text: &str, font: Option<&mq::Font>, font_size: u16) -> Self {
+        let text_line_dimensions = text
+            .lines()
+            .map(|line| mq::measure_text(line, font, font_size, FONT_SCALE))
+            .collect::<Vec<_>>();
+
+        let mut max_width = 0f32;
+        for text_dimensions in &text_line_dimensions {
+            max_width = max_width.max(text_dimensions.width);
+        }
+
+        let mut height_of_last_line = text_line_dimensions.last().unwrap().height;
+        if height_of_last_line <= 0.0 {
+            // Hack to fix empty string last line being ignored
+            height_of_last_line = font_size as f32;
+        }
+        let total_height =
+            (text_line_dimensions.len() - 1) as f32 * font_size as f32 + height_of_last_line;
+
+        Self {
+            text_line_dimensions,
+            max_width,
+            total_height,
+        }
+    }
+}
+
 /// Rectangle that contains text. May or may not be a visible rectangle (see optional text background).
-/// This hopefully alleviates annoyance of dealing with shapes anchored to **top** left coordinate, but
-/// text anchored to **bottom** left coordinate.
+/// This hopefully alleviates annoyance of dealing with **shapes** being anchored to **top** left
+/// coordinate, but **text** being anchored to **bottom** left coordinate.
 #[derive(Copy, Clone)]
 pub struct TextContainer {
     pub rect_x: f32,
