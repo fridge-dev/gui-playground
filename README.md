@@ -3,6 +3,8 @@
 This is a collection of a few toy applications I'm building for fun that all have a GUI intensive part of the coding and
 share the same macroquad abstractions.
 
+Hosted on https://fridge-dev.github.io/gui-playground
+
 ## Apps
 
 * [Caterpillar](./caterpillar) - Modified snake example
