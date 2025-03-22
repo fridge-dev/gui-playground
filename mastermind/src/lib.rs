@@ -52,7 +52,7 @@ const KEY_RADIUS: f32 = KEY_SIZE / 2.0;
 const PEG_SIZE: f32 = 40.0;
 const PEG_RADIUS: f32 = PEG_SIZE / 2.0;
 const PEG_OUTER_PADDING: f32 = 10.0;
-const SLOT_PEG_FONT_SIZE: u16 = 24;
+const SLOT_PEG_FONT_SIZE: u16 = 32;
 const END_GAME_FONT_SIZE: u16 = 25;
 const HOW_TO_PLAY_OFFSET_X: f32 = BOARD_OFFSET_X;
 const HOW_TO_PLAY_OFFSET_Y: f32 = BOARD_OFFSET_Y;
@@ -624,60 +624,59 @@ impl MastermindGame {
             );
         }
 
-        // Text - controls
-        let controls_text = format!(
-            "Press [number key] to select color\n\
-            Press [{}] to submit guess\n\
-            Press [{}] to toggle numbers display\n\
-            Press [{}] to edit password",
-            KEY_SUBMIT.to_lowercase(),
-            KEY_TOGGLE_NUMBER_OVERLAY.to_lowercase(),
-            KEY_PLAYER_EDIT_PASSWORD.to_lowercase(),
-        );
-        bq::draw_text(
-            controls_text,
-            TextAlignment::Left,
-            None,
-            25,
-            mq::BLACK,
-            TextAnchorPoint::TopLeft {
-                x: BOARD_OFFSET_X,
-                y: pegs_y + PEG_RADIUS + PEG_OUTER_PADDING + 5.0,
-            },
-            Some(TextBackground {
-                color: mq::Color::new(1.0, 1.0, 1.0, 0.7),
-                x_padding: 2.5,
-                y_padding: 2.5,
-            }),
-        );
-
-        // Text - new game
-        let new_game_text = format!(
-            "Press [{}] to replay the same password.\nPress [{}] for a new password.",
-            KEY_REPLAY_PASSWORD.to_lowercase(),
-            KEY_NEW_PASSWORD.to_lowercase(),
-        );
+        // Text - state-specific info
         let info_text_background = TextBackground {
             color: mq::Color::new(0.78, 0.78, 0.78, 0.8),
             x_padding: 10.0,
             y_padding: 10.0,
         };
+        let new_game_text = format!(
+            "Press [{}] to replay the same password.\nPress [{}] for a new password.",
+            KEY_REPLAY_PASSWORD.to_lowercase(),
+            KEY_NEW_PASSWORD.to_lowercase(),
+        );
         match &self.state {
             GameState::InProgress { .. } | GameState::EditPassword { .. } => {
-                bq::draw_text(
+                // Text - how to play
+                let x_anchor = BOARD_OFFSET_X + row_width_guess + row_width_key + HOW_TO_PLAY_OFFSET_X;
+                let how_to_play_text_container = bq::draw_text(
                     HOW_TO_PLAY_TEXT,
                     TextAlignment::Left,
                     None,
                     HOW_TO_PLAY_FONT_SIZE,
                     mq::BLACK,
                     TextAnchorPoint::TopLeft {
-                        x: BOARD_OFFSET_X + row_width_guess + row_width_key + HOW_TO_PLAY_OFFSET_X,
+                        x: x_anchor,
                         y: HOW_TO_PLAY_OFFSET_Y,
+                    },
+                    Some(info_text_background),
+                );
+
+                // Text - controls
+                let controls_text = format!(
+                    "Press [number key] to select color\n\
+                    Press [{}] to submit guess\n\
+                    Press [{}] to toggle numbers display\n\
+                    Press [{}] to edit password",
+                    KEY_SUBMIT.to_lowercase(),
+                    KEY_TOGGLE_NUMBER_OVERLAY.to_lowercase(),
+                    KEY_PLAYER_EDIT_PASSWORD.to_lowercase(),
+                );
+                bq::draw_text(
+                    controls_text,
+                    TextAlignment::Left,
+                    None,
+                    25,
+                    mq::BLACK,
+                    TextAnchorPoint::TopLeft {
+                        x: x_anchor,
+                        y: how_to_play_text_container.rect_y + how_to_play_text_container.rect_height + 5.0,
                     },
                     Some(info_text_background),
                 );
             }
             GameState::Victory { total_time, .. } => {
+                // Text - winner new game
                 let win_title = win_title::get(&self.history);
                 let win_title_article = match win_title.article {
                     Some(s) => format!("{s} "),
@@ -700,6 +699,7 @@ impl MastermindGame {
                 );
             }
             GameState::TooManyGuesses => {
+                // Text - loser new game
                 bq::draw_text(
                     format!("You lose lmao\n\n{new_game_text}"),
                     TextAlignment::Left,
