@@ -1,4 +1,5 @@
 //! Better abstractions and utilities than macroquad ("mq").
+pub(crate) mod bq_button;
 pub(crate) mod bq_circle;
 pub(crate) mod bq_color;
 pub(crate) mod bq_fps;
@@ -18,6 +19,7 @@ pub use stateful_gui::{run_gui, run_gui_default, StatefulGui};
 
 pub mod bq {
     //! prelude
+    pub use crate::bq_button::*;
     pub use crate::bq_circle::*;
     pub use crate::bq_color::*;
     pub use crate::bq_fps::*;

@@ -1,6 +1,6 @@
 use crate::password::{Password, PasswordSource};
 use crate::victory_mouse_animation::VictoryMouseAnimations;
-use better_quad::bq::{BetterKeyCode, TextAlignment, TextAnchorPoint};
+use better_quad::bq::{BetterKeyCode, SimpleButton, TextAlignment, TextAnchorPoint};
 use better_quad::{
     bq::{self, FpsCounter, TextBackground, Timestamp},
     StatefulGui,
@@ -53,6 +53,8 @@ const PEG_SIZE: f32 = 40.0;
 const PEG_RADIUS: f32 = PEG_SIZE / 2.0;
 const PEG_OUTER_PADDING: f32 = 10.0;
 const SLOT_PEG_FONT_SIZE: u16 = 32;
+const SUBMIT_BTN_HEIGHT: f32 = 50.0;
+const SUBMIT_BTN_FONT_SIZE: u16 = 40;
 const END_GAME_FONT_SIZE: u16 = 25;
 const HOW_TO_PLAY_OFFSET_X: f32 = BOARD_OFFSET_X;
 const HOW_TO_PLAY_OFFSET_Y: f32 = BOARD_OFFSET_Y;
@@ -128,6 +130,7 @@ enum GameState {
         start_time: Timestamp,
         working_row: [Option<Color>; NUM_SLOTS_PER_ROW],
         mouse_click_release_behavior: MouseClickReleaseBehavior,
+        submit_button: SimpleButton,
     },
     EditPassword {
         mouse_click_release_behavior: MouseClickReleaseBehavior,
@@ -192,7 +195,29 @@ impl GameState {
             start_time: Timestamp::now(),
             working_row: [None; NUM_SLOTS_PER_ROW],
             mouse_click_release_behavior: MouseClickReleaseBehavior::None,
+            submit_button: Self::create_submit_button(),
         }
+    }
+
+    fn create_submit_button() -> SimpleButton {
+        let BoardSizeDerivedConsts {
+            row_width_guess,
+            row_width_key,
+            ..
+        } = BoardSizeDerivedConsts::get();
+        let pegs_y = pegs_ij::compute_y_coordinate();
+
+        let submit_btn_x_padding = 12.0;
+        let submit_btn_x = BOARD_OFFSET_X + submit_btn_x_padding;
+        let submit_btn_width = row_width_guess + row_width_key - (submit_btn_x_padding * 2.0);
+        let submit_btn_y = pegs_y + PEG_RADIUS + PEG_OUTER_PADDING + 5.0;
+
+        SimpleButton::new(
+            submit_btn_x,
+            submit_btn_y,
+            submit_btn_width,
+            SUBMIT_BTN_HEIGHT,
+        )
     }
 }
 
@@ -273,6 +298,7 @@ impl MastermindGame {
                 working_row,
                 start_time,
                 ref mut mouse_click_release_behavior,
+                ref mut submit_button,
             } => {
                 // Update mouse color if needed
                 if let Some((new_color, new_release_behavior)) = Self::get_mouse_color_update() {
@@ -300,7 +326,8 @@ impl MastermindGame {
                 }
 
                 // Apply guess if needed
-                if mq::is_key_pressed(KEY_SUBMIT) {
+                let submit_button_action = submit_button.tick_state(); // unconditionally tick state
+                if mq::is_key_pressed(KEY_SUBMIT) || submit_button_action.should_trigger_action() {
                     if let Some(guess) = convert_working_row_if_completed(working_row) {
                         let complete_row = evaluate_guess(guess, *self.password.password());
                         self.history.push(complete_row);
@@ -624,6 +651,31 @@ impl MastermindGame {
             );
         }
 
+        // Submit button
+        if let GameState::InProgress { submit_button, .. } = &self.state {
+            if !submit_button.is_pressed() {
+                // Unpressed
+                submit_button.draw(
+                    mq::WHITE,
+                    mq::GOLD,
+                    3.0,
+                    "SUBMIT GUESS",
+                    SUBMIT_BTN_FONT_SIZE,
+                    mq::BLACK,
+                );
+            } else {
+                // Pressed
+                submit_button.draw(
+                    mq::LIGHTGRAY,
+                    mq::GOLD,
+                    3.0,
+                    "SUBMIT GUESS",
+                    SUBMIT_BTN_FONT_SIZE,
+                    mq::BLACK,
+                );
+            }
+        }
+
         // Text - state-specific info
         let info_text_background = TextBackground {
             color: mq::Color::new(0.78, 0.78, 0.78, 0.8),
@@ -638,7 +690,8 @@ impl MastermindGame {
         match &self.state {
             GameState::InProgress { .. } | GameState::EditPassword { .. } => {
                 // Text - how to play
-                let x_anchor = BOARD_OFFSET_X + row_width_guess + row_width_key + HOW_TO_PLAY_OFFSET_X;
+                let x_anchor =
+                    BOARD_OFFSET_X + row_width_guess + row_width_key + HOW_TO_PLAY_OFFSET_X;
                 let how_to_play_text_container = bq::draw_text(
                     HOW_TO_PLAY_TEXT,
                     TextAlignment::Left,
@@ -670,7 +723,9 @@ impl MastermindGame {
                     mq::BLACK,
                     TextAnchorPoint::TopLeft {
                         x: x_anchor,
-                        y: how_to_play_text_container.rect_y + how_to_play_text_container.rect_height + 5.0,
+                        y: how_to_play_text_container.rect_y
+                            + how_to_play_text_container.rect_height
+                            + 5.0,
                     },
                     Some(info_text_background),
                 );
